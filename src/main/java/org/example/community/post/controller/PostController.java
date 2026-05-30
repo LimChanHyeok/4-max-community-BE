@@ -1,5 +1,6 @@
 package org.example.community.post.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.response.ApiResponse;
@@ -46,9 +47,12 @@ public class PostController {
     @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<PostCreateResponse>> createPost(
             @Valid @ModelAttribute PostCreateRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            HttpServletRequest httpServletRequest
     ) {
-        PostCreateResponse response = postService.createPost(request, image);
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
+
+        PostCreateResponse response = postService.createPost(loginUserId,request, image);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("게시글 등록에 성공했습니다.", response));
@@ -56,12 +60,10 @@ public class PostController {
 
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostDetailResponse>> getPostDetail(
-            @PathVariable Long postId
+            @PathVariable Long postId,
+            HttpServletRequest httpServletRequest
     ) {
-        /**
-         * 이 부분도 나중에 JWT를 넣었을 때 바꿔야 함
-         */
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostDetailResponse response = postService.getPostDetail(
                 postId,
@@ -80,12 +82,10 @@ public class PostController {
     public ResponseEntity<ApiResponse<PostUpdateResponse>> updatePost(
             @PathVariable Long postId,
             @Valid @ModelAttribute PostUpdateRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image
+            @RequestPart(value = "image", required = false) MultipartFile image,
+            HttpServletRequest httpServletRequest
     ) {
-        /**
-         * 이 부분도 나중에 JWT구현하고 바꿔야됨..!
-         */
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostUpdateResponse response = postService.updatePost(
                 postId,
@@ -102,9 +102,10 @@ public class PostController {
 
     @DeleteMapping("/{postId}")
     public ResponseEntity<ApiResponse<Void>> deletePost(
-            @PathVariable Long postId
+            @PathVariable Long postId,
+            HttpServletRequest httpServletRequest
     ) {
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         postService.deletePost(postId, loginUserId);
 

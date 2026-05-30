@@ -1,5 +1,6 @@
 package org.example.community.user.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.response.ApiResponse;
@@ -68,12 +69,10 @@ public class UserController {
     @PatchMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ApiResponse<UserUpdateResponse>> updateUser(
             @Valid @ModelAttribute UserUpdateRequest request,
-            @RequestPart(value = "profile_image", required = false) MultipartFile profileImage
+            @RequestPart(value = "profile_image", required = false) MultipartFile profileImage,
+            HttpServletRequest httpServletRequest
     ) {
-        /**
-         * 이 부분도 나중에 JWT를 넣었을 때 바꿔야함
-         */
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         UserUpdateResponse response = userService.updateUser(
                 loginUserId,
@@ -91,12 +90,10 @@ public class UserController {
      */
     @PutMapping("/me/password")
     public ResponseEntity<ApiResponse<Void>> updatePassword(
-            @Valid @RequestBody PasswordUpdateRequest request
+            @Valid @RequestBody PasswordUpdateRequest request,
+            HttpServletRequest httpServletRequest
     ) {
-        /**
-         * 이 부분도 나중에 JWT를 넣었을 때 바꿔야 함
-         */
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         userService.updatePassword(
                 loginUserId,
@@ -110,11 +107,9 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<Void>> deleteUser() {
-        /**
-         * 이 부분도 나중에 JWT를 넣었을 때 바꿔야 함
-         */
-        Long loginUserId = 1L;
+    public ResponseEntity<ApiResponse<Void>> deleteUser( HttpServletRequest httpServletRequest) {
+
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         userService.deleteUser(loginUserId);
 

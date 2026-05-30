@@ -113,6 +113,16 @@ public enum ErrorCode {
             "COMMENT_DELETE_FORBIDDEN",
             "댓글 삭제 권한이 없습니다."
     ),
+    /**
+     * 유효하지 않은 토큰일 때
+     */
+    INVALID_TOKEN(
+            HttpStatus.UNAUTHORIZED,
+            "INVALID_TOKEN",
+            "유효하지 않은 토큰입니다."
+    ),
+
+
 
 
     /**

@@ -1,4 +1,4 @@
-package org.example.community.user.dto.request;
+package org.example.community.auth.dto.request;
 
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;

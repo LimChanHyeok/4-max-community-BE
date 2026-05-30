@@ -181,14 +181,7 @@ public class PostService {
     }
 
     @Transactional
-    public PostCreateResponse createPost(PostCreateRequest request, MultipartFile image) {
-        /**
-         * 현재는 JWT를 도입하지 않았기 때문에
-         * 서버가 요청을 보낸 사용자의 userId를 알 수 없다.
-         * 그래서 임시로 1번 사용자가 게시글을 작성한 것으로 처리한다.
-         * 추후 JWT 도입 후 토큰에서 로그인 사용자 id를 꺼내는 방식으로 변경할 예정이다.
-         */
-        Long loginUserId = 1L;
+    public PostCreateResponse createPost(Long loginUserId,PostCreateRequest request, MultipartFile image) {
 
         /**
          * MultipartFile로 받은 이미지가 있으면 서버 폴더에 저장하고,

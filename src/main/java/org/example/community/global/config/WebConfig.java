@@ -1,6 +1,9 @@
 package org.example.community.global.config;
 
+import lombok.RequiredArgsConstructor;
+import org.example.community.global.auth.AuthInterceptor;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
@@ -12,8 +15,10 @@ import java.nio.file.Paths;
  * 따라서 이 클래스는 URL주소와 실제 파일 위치를 맞춰주는 클래스
  */
 @Configuration
+@RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
+    private final AuthInterceptor authInterceptor;
 
     /**
      * 정적 리소스(이미지 파일) 경로를 추가 설정하는 메소드
@@ -30,4 +35,20 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(uploadPath);
     }
+
+    @Override
+    public void addInterceptors(InterceptorRegistry registry) {
+        registry.addInterceptor(authInterceptor)
+                // 이 경로들은 다 AuthInterceptor을 거치게 한다는 것
+                .addPathPatterns(
+                        "**"
+                )
+                .excludePathPatterns(
+                        "/auth",
+                        "/auth/reissue",
+                        "/users",
+                        "/uploads/**"
+                );
+    }
+
 }

@@ -1,5 +1,6 @@
 package org.example.community.comment.controller;
 
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.comment.dto.request.CommentCreateRequest;
@@ -23,12 +24,10 @@ public class CommentController {
     @PostMapping
     public ResponseEntity<ApiResponse<CommentCreateResponse>> createComment(
             @PathVariable Long postId,
-            @Valid @RequestBody CommentCreateRequest request
+            @Valid @RequestBody CommentCreateRequest request,
+            HttpServletRequest httpServletRequest
     ) {
-        /**
-         * 이 부분도 JWT구현후 변경
-         */
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         CommentCreateResponse response = commentService.createComment(
                 postId,
@@ -45,9 +44,10 @@ public class CommentController {
     public ResponseEntity<ApiResponse<CommentListResponse>> getComments(
             @PathVariable Long postId,
             @RequestParam(required = false) String cursor,
-            @RequestParam(required = false) Integer size
+            @RequestParam(required = false) Integer size,
+            HttpServletRequest httpServletRequest
     ) {
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         CommentListResponse response = commentService.getComments(
                 postId,
@@ -65,9 +65,10 @@ public class CommentController {
     public ResponseEntity<ApiResponse<CommentUpdateResponse>> updateComment(
             @PathVariable Long postId,
             @PathVariable Long commentId,
-            @Valid @RequestBody CommentUpdateRequest request
+            @Valid @RequestBody CommentUpdateRequest request,
+            HttpServletRequest httpServletRequest
     ) {
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         CommentUpdateResponse response = commentService.updateComment(
                 postId,
@@ -84,9 +85,10 @@ public class CommentController {
     @DeleteMapping("/{commentId}")
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long postId,
-            @PathVariable Long commentId
+            @PathVariable Long commentId,
+            HttpServletRequest httpServletRequest
     ) {
-        Long loginUserId = 1L;
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         commentService.deleteComment(postId, commentId, loginUserId);
 

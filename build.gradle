@@ -34,7 +34,13 @@ dependencies {
     //해싱 도구
     implementation 'org.springframework.security:spring-security-crypto'
 
+    // jackson 라이브러리 직접 추가
     implementation 'com.fasterxml.jackson.core:jackson-databind'
+
+    // JWT 관련 라이브러리
+    implementation 'io.jsonwebtoken:jjwt-api:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-impl:0.12.6'
+    runtimeOnly 'io.jsonwebtoken:jjwt-jackson:0.12.6'
 
 }
 

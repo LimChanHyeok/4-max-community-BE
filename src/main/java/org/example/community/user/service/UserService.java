@@ -1,6 +1,9 @@
 package org.example.community.user.service;
 
 import lombok.RequiredArgsConstructor;
+import org.example.community.auth.domain.RefreshToken;
+import org.example.community.auth.repository.RefreshTokenRepository;
+import org.example.community.global.auth.JwtProvider;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.FileStorageService;
@@ -11,7 +14,7 @@ import org.example.community.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.example.community.user.dto.response.LoginResponse;
+import org.example.community.auth.dto.response.LoginResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -21,6 +24,9 @@ public class UserService {
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
     private final FileStorageService fileStorageService;
+    //JWT관련 클래스 추가
+    private final JwtProvider jwtProvider;
+    private final RefreshTokenRepository refreshTokenRepository;
 
     /**
      * signup이라는 하나의 흐름 속에서 중간에 문제가 생긴다면 저장이 되면 안되고
@@ -56,21 +62,6 @@ public class UserService {
         return userRepository.save(user);
     }
 
-    /**
-     *수정이나 저장을 하지 않기 때문에 ReadOnly 사용
-     */
-    @Transactional(readOnly = true)
-    public LoginResponse login(String email, String password) {
-
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new CustomException(ErrorCode.LOGIN_FAILED));
-
-        if (!passwordEncoder.matches(password, user.getPassword())) {
-            throw new CustomException(ErrorCode.LOGIN_FAILED);
-        }
-
-        return new LoginResponse(user.getId());
-    }
 
     @Transactional(readOnly = true)
     public UserProfileResponse getUserProfile(Long userId) {
