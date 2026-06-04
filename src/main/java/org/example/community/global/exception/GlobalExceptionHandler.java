@@ -11,7 +11,8 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
 
 /**
  * 프로젝트 전체에서 발생한 예외를 잡아서
- * API 명세에 맞는 HTTP 상태코드와 JSON 응답으로 변환하는 클래스이다.
+ * API 명세에 맞는 HTTP 상태코드와 JSON 응답으로 변환하는 클래스
+ * 자바 빈으로 등록됨
  * @RestControllerAdvice 이 어노테이션을 보고 여기가 전역 예외 처리 클래스구나 하고 일로 옴
  */
 @RestControllerAdvice

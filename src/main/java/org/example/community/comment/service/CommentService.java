@@ -2,7 +2,7 @@ package org.example.community.comment.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
-import org.example.community.comment.domain.Comment;
+import org.example.community.comment.entity.Comment;
 import org.example.community.comment.dto.response.CommentCreateResponse;
 import org.example.community.comment.dto.response.CommentListResponse;
 import org.example.community.comment.dto.response.CommentSummaryResponse;
@@ -10,7 +10,10 @@ import org.example.community.comment.dto.response.CommentUpdateResponse;
 import org.example.community.comment.repository.CommentRepository;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
+import org.example.community.post.entity.Post;
 import org.example.community.post.repository.PostRepository;
+import org.example.community.user.entity.User;
+import org.example.community.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -24,6 +27,7 @@ import java.util.Map;
 public class CommentService {
 
     private final CommentRepository commentRepository;
+    private final UserRepository userRepository;
     private final PostRepository postRepository;
 
     private static final int DEFAULT_SIZE = 10;
@@ -44,24 +48,27 @@ public class CommentService {
             Long loginUserId,
             String content
     ) {
-        postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        Comment comment = new Comment(
-                null,
-                loginUserId,
-                postId,
-                content,
-                null,
-                null
+        User user = userRepository.findById(loginUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Comment comment = Comment.create(
+                post,
+                user,
+                content
         );
 
         Comment savedComment = commentRepository.save(comment);
 
         /**
          * 이 부분에서 게시그르이 댓글 수를 증가시킨다.
+         * 현재 트랜잭션 안에서 post도 영속상태이기 때문에
+         * increaseCommentCount로 값을 변경하면
+         * 변경 감지로 UPDATE SQL 실행
          */
-        postRepository.increaseCommentCount(postId);
+        post.increaseCommentCount();
 
         return commentRepository.findCreateResponseById(
                         savedComment.getId(),
@@ -70,6 +77,8 @@ public class CommentService {
                 .orElseThrow(() -> new CustomException(ErrorCode.INTERNAL_SERVER_ERROR));
     }
 
+    // 기존 JDBC는 Repistory에서 SQL로 조회했지만
+    // 지금은 Impl에서 QueryDSL로 조회하는것
     @Transactional(readOnly = true)
     public CommentListResponse getComments(
             Long postId,
@@ -108,6 +117,7 @@ public class CommentService {
 
         List<CommentSummaryResponse> comments = fetchedComments;
 
+        // 11개를 조회하고 10개를 주어야하니 0부터 size까지 잘라서 comments에 저장
         if (hasNext) {
             comments = fetchedComments.subList(0, validatedSize);
         }
@@ -125,7 +135,8 @@ public class CommentService {
                 hasNext
         );
     }
-
+    // 여기 Integer도 size값이 안들어올 경우를 생각하여
+    // int가 아닌 Integer로 설정하였음
     private int validateSize(Integer size) {
         if (size == null) {
             return DEFAULT_SIZE;
@@ -165,17 +176,23 @@ public class CommentService {
             List<CommentSummaryResponse> comments,
             boolean hasNext
     ) {
+        // hasNext가 false거나 온 comments가 없다면
         if (!hasNext || comments.isEmpty()) {
             return null;
         }
 
         try {
+            //comments의 마지막 댓글을 내는 것
             CommentSummaryResponse lastComment = comments.get(comments.size() - 1);
 
+            // 마지막 댓글의 idfmf Map으로 감사는 것
+            // commentId = 20
+            // map으로 감싸는건 나중에 확장성을 위해서. 최신순이라면 등록시간까지 넣어서 사용
             Map<String, Long> cursorMap = Map.of(
                     "commentId", lastComment.getCommentId()
             );
 
+            // 위에서 만든 map을 JSON 문자열로 바꿔줌
             String json = objectMapper.writeValueAsString(cursorMap);
 
             return Base64.getEncoder()
@@ -183,7 +200,9 @@ public class CommentService {
         } catch (Exception e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
-    }@Transactional
+    }
+
+    @Transactional
     public CommentUpdateResponse updateComment(
             Long postId,
             Long commentId,
@@ -193,17 +212,27 @@ public class CommentService {
         postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        Long writerId = commentRepository.findWriterIdByPostIdAndCommentId(postId, commentId)
+        Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!writerId.equals(loginUserId)) {
+
+        if (!comment.getPost().getId().equals(postId)) {
+            throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        if (!comment.getUser().getId().equals(loginUserId)) {
             throw new CustomException(ErrorCode.COMMENT_UPDATE_FORBIDDEN);
         }
 
-        commentRepository.updateComment(commentId, content);
+        comment.updateContent(content);
 
-        return commentRepository.findUpdateResponseById(commentId)
-                .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
+        commentRepository.flush();
+
+        return new CommentUpdateResponse(
+                    comment.getId(),
+                    comment.getContent(),
+                    comment.getUpdatedAt()
+        );
     }
 
     @Transactional
@@ -212,19 +241,24 @@ public class CommentService {
             Long commentId,
             Long loginUserId
     ) {
-        postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        Long writerId = commentRepository.findWriterIdByPostIdAndCommentId(postId, commentId)
+        Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
 
-        if (!writerId.equals(loginUserId)) {
+
+        if (!comment.getPost().getId().equals(postId)) {
+            throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
+        }
+
+        if (!comment.getUser().getId().equals(loginUserId)) {
             throw new CustomException(ErrorCode.COMMENT_DELETE_FORBIDDEN);
         }
 
-        commentRepository.deleteComment(commentId);
+        commentRepository.delete(comment);
 
-        postRepository.decreaseCommentCount(postId);
+        post.decreaseCommentCount();
     }
 
 

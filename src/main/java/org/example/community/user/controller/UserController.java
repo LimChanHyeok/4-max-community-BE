@@ -4,7 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.response.ApiResponse;
-import org.example.community.user.domain.User;
+import org.example.community.user.entity.User;
 import org.example.community.user.dto.request.PasswordUpdateRequest;
 import org.example.community.user.dto.request.SignupRequest;
 import org.example.community.user.dto.request.UserUpdateRequest;

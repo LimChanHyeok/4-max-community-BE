@@ -3,9 +3,14 @@ package org.example.community.postlike.service;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
+import org.example.community.post.entity.Post;
 import org.example.community.post.repository.PostRepository;
 import org.example.community.postlike.dto.response.PostLikeResponse;
+import org.example.community.postlike.entity.PostLike;
+import org.example.community.postlike.entity.PostLikeId;
 import org.example.community.postlike.repository.PostLikeRepository;
+import org.example.community.user.entity.User;
+import org.example.community.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -15,6 +20,7 @@ public class PostLikeService {
 
     private final PostLikeRepository postLikeRepository;
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
 
     /**
      * 게시글 존재 여부를 확인, 사용자가 이미 좋아요를 눌렀는지 확인
@@ -23,49 +29,64 @@ public class PostLikeService {
      */
     @Transactional
     public PostLikeResponse likePost(Long postId, Long loginUserId) {
-        postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        boolean alreadyLiked = postLikeRepository.existsByPostIdAndUserId(postId, loginUserId);
+        User user = userRepository.findById(loginUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        PostLikeId postLikeId = new PostLikeId(loginUserId, postId);
+
+        boolean alreadyLiked = postLikeRepository.existsById(postLikeId);
 
         /**
          * 좋아요를 누르지 않았을 때 해야됨
          */
-        if (!alreadyLiked) {
-            postLikeRepository.save(postId, loginUserId);
-            postRepository.increaseLikeCount(postId);
+        if (alreadyLiked) {
+            throw new CustomException(ErrorCode.ALREADY_LIKED_POST);
         }
 
-        int likeCount = postRepository.findLikeCountByPostId(postId);
+        PostLike postLike = PostLike.create(user, post);
+
+        postLikeRepository.save(postLike);
+
+        /*
+         * post는 현재 트랜잭션 안에서 조회된 영속 상태 엔티티이므로
+         * increaseLikeCount()로 값만 변경해도
+         * 트랜잭션 종료 시 JPA 변경 감지로 like_count UPDATE SQL이 실행
+         */
+        post.increaseLikeCount();
 
         return new PostLikeResponse(
-                postId,
+                post.getId(),
                 true,
-                likeCount
+                post.getLikeCount()
         );
     }
 
     @Transactional
     public PostLikeResponse unlikePost(Long postId, Long loginUserId) {
-        postRepository.findById(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        boolean alreadyLiked = postLikeRepository.existsByPostIdAndUserId(postId, loginUserId);
+        PostLikeId postLikeId = new PostLikeId(loginUserId, postId);
 
-        /**
-         * 이미 좋아요가 눌러져있을때만 해야됨
+        PostLike postLike = postLikeRepository.findById(postLikeId)
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_LIKE_NOT_FOUND));
+
+        postLikeRepository.delete(postLike);
+
+        /*
+         * post는 현재 트랜잭션 안에서 조회된 영속 상태 엔티티이므로
+         * decreaseLikeCount()로 값만 변경하면
+         * 트랜잭션 종료 시 JPA 변경 감지로 like_count UPDATE SQL이 실행된다.
          */
-        if (alreadyLiked) {
-            postLikeRepository.delete(postId, loginUserId);
-            postRepository.decreaseLikeCount(postId);
-        }
-
-        int likeCount = postRepository.findLikeCountByPostId(postId);
+        post.decreaseLikeCount();
 
         return new PostLikeResponse(
-                postId,
+                post.getId(),
                 false,
-                likeCount
+                post.getLikeCount()
         );
     }
 }

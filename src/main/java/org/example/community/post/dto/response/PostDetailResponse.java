@@ -29,13 +29,13 @@ public class PostDetailResponse {
     private LocalDateTime createdAt;
 
     @JsonProperty("like_count")
-    private int likeCount;
+    private Long likeCount;
 
     @JsonProperty("comment_count")
-    private int commentCount;
+    private Long commentCount;
 
     @JsonProperty("view_count")
-    private int viewCount;
+    private Long viewCount;
 
     @JsonProperty("is_liked")
     private boolean liked;

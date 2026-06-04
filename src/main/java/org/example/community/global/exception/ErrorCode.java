@@ -72,6 +72,24 @@ public enum ErrorCode {
     ),
 
     /**
+     * 이미 좋아요를 누른 게시글에 다시 좋아요 등록을 요청한 경우
+     */
+    ALREADY_LIKED_POST(
+            HttpStatus.CONFLICT,
+            "ALREADY_LIKED_POST",
+            "이미 좋아요를 누른 게시글입니다."
+    ),
+
+    /**
+     * 좋아요를 누르지 않은 게시글에 좋아요 취소를 요청한 경우
+     */
+    POST_LIKE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "POST_LIKE_NOT_FOUND",
+            "좋아요를 찾을 수 없습니다."
+    ),
+
+    /**
      * 조재하지 않는 댓글을 조회한 경우
      */
     COMMENT_NOT_FOUND(

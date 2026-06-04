@@ -39,6 +39,16 @@ public class AuthInterceptor implements HandlerInterceptor {
             HttpServletResponse response,
             Object handler
     ) {
+
+        // 프론트를 연동하다가 OPTIONS라는 Method로 OPTIONS /auth 이런식으로 보냄
+        // 실제 요청이 아닌 브라우저가 이 요청을 보내도되는지 서버에게 미리 물어보는 요처인데
+        // OPTIONS가 들어왔을 때 헤더가 없기 때문에 인터셉터에서 막혀버리면서 에러가 뜸
+        if (request.getMethod().equals("OPTIONS")) {
+            return true;
+        }
+
+        System.out.println("요청 URI = " + request.getRequestURI());
+        System.out.println("요청 Method = " + request.getMethod());
         String authorizationHeader = request.getHeader("Authorization");
 
         /**

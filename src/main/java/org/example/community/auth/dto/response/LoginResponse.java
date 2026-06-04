@@ -29,14 +29,14 @@ public class LoginResponse {
     @JsonProperty("access_token")
     private String accessToken;
 
-    /**
-     * Access Token이 만료되었을 때 재발급을 위한 Refresh Token
-     *
-     * 지금은 Postman 테스트를 위해 body로 반환
-     * 나중에 프론트 연결 후에는 HttpOnly Cookie로 내려줄 예정
-     */
-    @JsonProperty("refresh_token")
-    private String refreshToken;
+//    /**
+//     * Access Token이 만료되었을 때 재발급을 위한 Refresh Token
+//     *
+//     * 지금은 Postman 테스트를 위해 body로 반환
+//     * 나중에 프론트 연결 후에는 HttpOnly Cookie로 내려줄 예정
+//     */
+//    @JsonProperty("refresh_token")
+//    private String refreshToken;
 
     /**
      * 토큰 타입

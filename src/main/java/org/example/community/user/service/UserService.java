@@ -1,15 +1,15 @@
 package org.example.community.user.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.community.auth.domain.RefreshToken;
+import org.example.community.auth.entity.RefreshToken;
 import org.example.community.auth.repository.RefreshTokenRepository;
 import org.example.community.global.auth.JwtProvider;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.FileStorageService;
-import org.example.community.user.domain.User;
 import org.example.community.user.dto.response.UserProfileResponse;
 import org.example.community.user.dto.response.UserUpdateResponse;
+import org.example.community.user.entity.User;
 import org.example.community.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
@@ -49,14 +49,11 @@ public class UserService {
 
         String profileImageUrl = fileStorageService.store(profileImage,"profiles");
 
-        User user = new User(
-                null,
+        User user = User.create(
                 email,
                 encodedPassword,
                 nickname,
-                profileImageUrl,
-                null,
-                null
+                profileImageUrl
         );
 
         return userRepository.save(user);
@@ -82,42 +79,22 @@ public class UserService {
             String nickname,
             MultipartFile profileImage
     ) {
-        /**
-         * userId가 없다면 USER_NOT_FOUND 에러 던짐
-         */
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        String profileImageUrl = user.getProfileImage();
 
-        String profileImageUrl = null;
-
-        /**
-         * profileImage != null -> 프로필 이미지가 실제로 들어왔는지 확인하는 부분
-         * !profileImage.isEmpty() -> 파일이 비어있지 않은지 확인하는 부분
-         * 밑에 조건식을 만족한다는 건 프로필 이미지 파일이 들어왔다는 것
-         * 그렇다면 파일을 uploads/profiles폴더에 저장하고 저장된 이미지 경로를 ProfileImageUrl에 넣는다.
-         */
         if (profileImage != null && !profileImage.isEmpty()) {
             profileImageUrl = fileStorageService.store(profileImage, "profiles");
         }
 
-        userRepository.updateProfile(
-                user.getId(),
-                nickname,
-                profileImageUrl
-        );
+        user.updateProfile(nickname, profileImageUrl);
 
-        /**
-         * DB 수정이 끝나고 다시 조회하는 코드
-         * 수정된 최신값을 응답으로 내려주기 위해서
-         */
-        User updatedUser = userRepository.findById(user.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
         return new UserUpdateResponse(
-                updatedUser.getId(),
-                updatedUser.getNickname(),
-                updatedUser.getProfileImage()
+                user.getId(),
+                user.getNickname(),
+                user.getProfileImage()
         );
     }
 
@@ -139,7 +116,7 @@ public class UserService {
          */
         String encodedPassword = passwordEncoder.encode(password);
 
-        userRepository.updatePassword(user.getId(), encodedPassword);
+        user.updatePassword(encodedPassword);
     }
 
     @Transactional
@@ -147,7 +124,8 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        userRepository.deleteById(user.getId());
+        // userId기반으로 찾았으므로 user객체 그대로 삭제
+        userRepository.delete(user);
     }
 
 

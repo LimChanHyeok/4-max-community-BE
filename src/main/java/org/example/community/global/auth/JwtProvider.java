@@ -73,7 +73,7 @@ public class JwtProvider {
                 .expiration(expiration)
                 // 서버의 비밀키로 토큰에 서명하는 것
                 .signWith(secretKey)
-                // 최종적으로 xxxx.yyyy.zzzz 형식으로 문자열을 만들어줌
+                // 최종적으로 xxxx.yyyy.zzzz 형식으로 문자열을 만들어줌, 여기서 내부적으로 base64 인코딩까지 해줌
                 .compact();
     }
 

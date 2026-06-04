@@ -18,5 +18,5 @@ public class PostLikeResponse {
      * 서버가 DB에서 조회한 다음 프론트에게 알려주기 위해 넣음
      */
     @JsonProperty("like_count")
-    private int likeCount;
+    private Long likeCount;
 }

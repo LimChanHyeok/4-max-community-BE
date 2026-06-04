@@ -5,11 +5,12 @@ import lombok.RequiredArgsConstructor;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.FileStorageService;
-import org.example.community.global.file.LocalFileStorageService;
-import org.example.community.post.domain.Post;
+import org.example.community.post.entity.Post;
 import org.example.community.post.dto.request.PostCreateRequest;
 import org.example.community.post.dto.response.*;
 import org.example.community.post.repository.PostRepository;
+import org.example.community.user.entity.User;
+import org.example.community.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -40,6 +41,7 @@ public class PostService {
 
     private final FileStorageService fileStorageService;
     private final PostRepository postRepository;
+    private final UserRepository userRepository;
     /**
      * ObjectMapper는 java 객체와 JSON 문자열을 변환하는 도구
      * import com.fasterxml.jackson.databind.ObjectMapper;
@@ -184,38 +186,74 @@ public class PostService {
     public PostCreateResponse createPost(Long loginUserId,PostCreateRequest request, MultipartFile image) {
 
         /**
+         * 게시글 작성자는 로그인한 사용자이므로 loginUserId로 User 엔티티를 조회한다.
+         *
+         * JPA의 Post 엔티티는 userId 값만 가지는 것이 아니라
+         * User 엔티티와 @ManyToOne 관계를 맺고 있기 때문에
+         * 게시글 생성 시 User 객체가 필요하다.
+         */
+        User user = userRepository.findById(loginUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        /**
          * MultipartFile로 받은 이미지가 있으면 서버 폴더에 저장하고,
          * DB에는 실제 파일 자체가 아니라 저장된 파일 경로 문자열을 저장한다.
          * 이미지가 없으면 imageUrl은 null로 저장된다.
          */
         String imageUrl = fileStorageService.store(image,"posts");
 
-        Post post = new Post(
-                null,
-                loginUserId,
+        Post post = Post.create(
+                user,
                 request.getTitle(),
                 request.getContent(),
-                imageUrl,
-                null,
-                null,
-                null,
-                null,
-                null
+                imageUrl
+
+        );
+        /**
+         * JpaRepository의 save()는 저장된 Post 엔티티를 반환한다.
+         * JDBC 때처럼 Repository가 PostCreateResponse를 주지 않음
+         */
+        Post savedPost = postRepository.save(post);
+
+        /**
+         * 응답 DTO는 Service에서 저장된 엔티티 값을 이용해 직접 생성
+         */
+        return new PostCreateResponse(
+                savedPost.getId(),
+                savedPost.getTitle(),
+                savedPost.getContent(),
+                savedPost.getImageUrl(),
+                savedPost.getCreatedAt(),
+                new PostWriterResponse(
+                        savedPost.getUser().getId(),
+                        savedPost.getUser().getNickname(),
+                        savedPost.getUser().getProfileImage()
+                )
         );
 
-        return postRepository.save(post);
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public PostDetailResponse getPostDetail(Long postId, Long loginUserId) {
-        postRepository.findById(postId)
+
+        /**
+         * 게시글 상세 조회 전에 게시글이 존재하는지 확인
+         */
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
         /**
-         * 게시글 상세 조회를 할 때 포스트가 존재하는 지 확인한 후 조회수 1 증가
+         * 게시글 상세 조회 시 조회수를 1 증가시킨다.
          */
-        postRepository.increaseViewCount(postId);
+        post.increaseViewCount();
 
+        /**
+         * 상세 조회 응답은 QueryDSL Custom Repository에서 DTO로 조회한다.
+         *
+         * loginUserId를 함께 넘기는 이유는
+         * 현재 로그인 사용자가 이 게시글에 좋아요를 눌렀는지 여부를
+         * 응답에 포함하기 위해서다.
+         */
         return postRepository.findPostDetailById(postId, loginUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
     }
@@ -228,43 +266,54 @@ public class PostService {
             String content,
             MultipartFile image
     ) {
-        Long writerId = postRepository.findWriterIdByPostId(postId)
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        if (!writerId.equals(loginUserId)) {
+        if (!post.getUser().getId().equals(loginUserId)) {
             throw new CustomException(ErrorCode.POST_FORBIDDEN);
         }
 
-        String imageUrl = null;
+        /**
+         * 새 이미지가 있으면 저장하고, 없으면 기존 이미지 URL을 유지한다.
+         *
+         * 기존 코드처럼 imageUrl을 null로 두고 update하면
+         * 이미지가 없는 수정 요청에서 기존 이미지가 null로 바뀜
+         * 기존에는 COALESCE를 이용하여 imageUrl이 null이면 기존값을 이용했음 -> SQL이용
+         */
+        String imageUrl = post.getImageUrl();
 
         if (image != null && !image.isEmpty()) {
             imageUrl = fileStorageService.store(image, "posts");
         }
+        post.updatePost(title, content, imageUrl);
 
-        postRepository.updatePost(postId, title, content, imageUrl);
-
-        Post updatedPost = postRepository.findById(postId)
-                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+        /**
+         * 처음에는 수정 후에 영속상태의 post값을 가져오려고했으나
+         * updated_at은 SQL이 실행되는 flush 시점에 갱신되기 땜ㄴ에
+         * flush를 호출하여 변경 내용을 DB에 반영하여 가져옴
+         */
+        postRepository.flush();
 
         return new PostUpdateResponse(
-                updatedPost.getId(),
-                updatedPost.getTitle(),
-                updatedPost.getContent(),
-                updatedPost.getImageUrl(),
-                updatedPost.getUpdatedAt()
+                post.getId(),
+                post.getTitle(),
+                post.getContent(),
+                post.getImageUrl(),
+                post.getUpdatedAt()
         );
     }
 
     @Transactional
     public void deletePost(Long postId, Long loginUserId) {
-        Long writerId = postRepository.findWriterIdByPostId(postId)
+
+        Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
-        if (!writerId.equals(loginUserId)) {
+        if (!post.getUser().getId().equals(loginUserId)) {
             throw new CustomException(ErrorCode.POST_DELETE_FORBIDDEN);
         }
 
-        postRepository.deleteById(postId);
+        postRepository.delete(post);
     }
 
 
