@@ -22,4 +22,7 @@ public class PostCreateRequest {
 
     @NotBlank(message = "본문은 필수입니다.")
     private String content;
+
+    @JsonProperty("image_id")
+    private Long imageId;
 }

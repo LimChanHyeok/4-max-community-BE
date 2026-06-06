@@ -32,8 +32,9 @@ public class Post {
     @Column(name = "content", nullable = false, columnDefinition = "TEXT")
     private String content;
 
-    @Column(name = "image_url", length = 500)
-    private String imageUrl;
+    // 이미지 테이블을 따로 만들어서 관리하기 때문에 삭제
+    // @Column(name = "image_url", length = 500)
+    // private String imageUrl;
 
     @Column(name = "view_count", nullable = false)
     private Long viewCount;
@@ -61,11 +62,10 @@ public class Post {
      * DB에서 defalut 0으로 설정을 해 놓았았고 기본형 변수라 알아서 0이 들어가지만
      * 읽는 사람에게 의도를 보여주기 위해 사용
      */
-    private Post(User user, String title, String content, String imageUrl) {
+    private Post(User user, String title, String content) {
         this.user = user;
         this.title = title;
         this.content = content;
-        this.imageUrl = imageUrl;
         this.viewCount = 0L;
         this.likeCount = 0L;
         this.commentCount = 0L;
@@ -74,18 +74,17 @@ public class Post {
     /**
      *새 게시글을 생성하기 위한 메소드
      */
-    public static Post create(User user, String title, String content, String imageUrl) {
-        return new Post(user, title, content, imageUrl);
+    public static Post create(User user, String title, String content) {
+        return new Post(user, title, content);
     }
 
     /**
      * 게시글 수정 시 사용하는 메소드
      * 엔티티의 값을 변경하면 변경감지를 통해 알아서 UPDATE SQL을 날려줌
      */
-    public void updatePost(String title, String content, String imageUrl) {
+    public void updatePost(String title, String content) {
         this.title = title;
         this.content = content;
-        this.imageUrl = imageUrl;
     }
 
 

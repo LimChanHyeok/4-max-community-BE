@@ -6,6 +6,8 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.example.community.comment.dto.response.CommentCreateResponse;
 import org.example.community.comment.dto.response.CommentSummaryResponse;
+import org.example.community.image.entity.ImageType;
+import org.example.community.image.entity.QImage;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
@@ -21,6 +23,8 @@ public class CommentRepositoryImpl implements CommentRepositoryCustom {
     // QueryDSL로 쿼리를 만들기 위한 객체
     private final JPAQueryFactory queryFactory;
 
+    private static final QImage writerProfileImage = new QImage("writerProfileImage");
+
     // 댓글을 저장한 뒤 클라이언트에게 내려줄 응답 DTOf를 조회하는 메소드
     @Override
     public Optional<CommentCreateResponse> findCreateResponseById(Long commentId, Long loginUserId) {
@@ -32,12 +36,17 @@ public class CommentRepositoryImpl implements CommentRepositoryCustom {
                         comment.createdAt,
                         user.id,
                         user.nickname,
-                        user.profileImage,
+                        writerProfileImage.imageUrl,
                         // 이 부분은 is_writer부분으로 댓글의 유저 아이디와 로그인한 아이디가 같은지 비교하는 것
                         comment.user.id.eq(loginUserId)
                 ))
                 .from(comment)
                 .join(comment.user, user)
+                .leftJoin(writerProfileImage)
+                .on(
+                        writerProfileImage.imageType.eq(ImageType.USER),
+                        writerProfileImage.referenceId.eq(user.id)
+                )
                 .where(comment.id.eq(commentId))
                 .fetchOne();
 
@@ -60,12 +69,17 @@ public class CommentRepositoryImpl implements CommentRepositoryCustom {
                         comment.createdAt,
                         user.id,
                         user.nickname,
-                        user.profileImage,
+                        writerProfileImage.imageUrl,
                         //이 부분도 is_writer부분 댓글의 userid와 로그인한 아이디를 비교하여 작성자인지 아닌지 판단
                         comment.user.id.eq(loginUserId)
                 ))
                 .from(comment)
                 .join(comment.user, user)
+                .leftJoin(writerProfileImage)
+                .on(
+                        writerProfileImage.imageType.eq(ImageType.USER),
+                        writerProfileImage.referenceId.eq(user.id)
+                )
                 .where(
                         comment.post.id.eq(postId),
                         // cusor가 없다면 null을 반환하는데 QueryDSL의 where()는 null이 있으면 무시함

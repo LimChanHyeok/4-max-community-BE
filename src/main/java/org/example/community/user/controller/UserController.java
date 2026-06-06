@@ -28,24 +28,12 @@ public class UserController {
      */
     private final UserService userService;
 
-    /**
-     * @RequestBody는 클라이언트가 보낸 요청 body를 SignupRequest 객체로 변환
-     * @Valid는 SignupRequest에 작성된 검증 어노테이션 실행
-     * Valid는 컨트롤러 안에 코드가 실행전에 걸리게 되면 exception발생
-     * signup Request에서 걸림
-     */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+
+    @PostMapping
     public ResponseEntity<ApiResponse<SignupResponse>> signup(
-            @Valid @ModelAttribute SignupRequest request,
-            @RequestPart(value = "profile_image", required = false) MultipartFile profileImage
+            @Valid @RequestBody SignupRequest request
     ) {
-        User user = userService.signup(
-                request.getEmail(),
-                request.getPassword(),
-                request.getPasswordConfirm(),
-                request.getNickname(),
-                profileImage
-        );
+        User user = userService.signup(request);
 
         SignupResponse response = new SignupResponse(user.getId());
 
@@ -66,18 +54,16 @@ public class UserController {
         );
     }
 
-    @PatchMapping(value = "/me", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping("/me")
     public ResponseEntity<ApiResponse<UserUpdateResponse>> updateUser(
-            @Valid @ModelAttribute UserUpdateRequest request,
-            @RequestPart(value = "profile_image", required = false) MultipartFile profileImage,
+            @Valid @RequestBody UserUpdateRequest request,
             HttpServletRequest httpServletRequest
     ) {
         Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         UserUpdateResponse response = userService.updateUser(
                 loginUserId,
-                request.getNickname(),
-                profileImage
+                request
         );
 
         return ResponseEntity.ok(

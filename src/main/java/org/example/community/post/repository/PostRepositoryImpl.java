@@ -4,6 +4,8 @@ import com.querydsl.core.BooleanBuilder;
 import com.querydsl.core.types.Projections;
 import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
+import org.example.community.image.entity.ImageType;
+import org.example.community.image.entity.QImage;
 import org.example.community.post.dto.response.PostDetailResponse;
 import org.example.community.post.dto.response.PostSummaryResponse;
 import org.example.community.post.dto.response.PostWriterResponse;
@@ -14,6 +16,7 @@ import java.util.Optional;
 import static org.example.community.post.entity.QPost.post;
 import static org.example.community.postlike.entity.QPostLike.postLike;
 import static org.example.community.user.entity.QUser.user;
+
 
 @RequiredArgsConstructor
 public class PostRepositoryImpl implements PostRepositoryCustom {
@@ -26,6 +29,9 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
      * 		.fetch(); 이런식으로 사용
      */
     private final JPAQueryFactory queryFactory;
+    // 같은 이미지 테이블 이지만 두번 leftJoin하기 위해 별칭을 사용함
+    private static final QImage postImage = new QImage("postImage");
+    private static final QImage writerProfileImage = new QImage("writerProfileImage");
 
 
     // 커서를 이용한 게시글 목록 조회를 위한 메소드
@@ -46,11 +52,16 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                                 PostWriterResponse.class,
                                 user.id,
                                 user.nickname,
-                                user.profileImage
+                                writerProfileImage.imageUrl
                         )
                 ))
                 .from(post)
                 .join(post.user, user)
+                .leftJoin(writerProfileImage)
+                .on(
+                        writerProfileImage.imageType.eq(ImageType.USER),
+                        writerProfileImage.referenceId.eq(user.id)
+                )
                 //where절에 조건이 하나라서 BooleanBuilder를 안씀, lt는 작다(<) 비교
                 .where(cursor != null ? post.id.lt(cursor) : null)
                 .orderBy(post.id.desc())
@@ -67,7 +78,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                         post.id,
                         post.title,
                         post.content,
-                        post.imageUrl,
+                        postImage.imageUrl,
                         post.createdAt,
                         post.likeCount,
                         post.commentCount,
@@ -78,12 +89,22 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                                 PostWriterResponse.class,
                                 user.id,
                                 user.nickname,
-                                user.profileImage
+                                writerProfileImage.imageUrl
                         )
                 ))
                 .from(post)
                 // 작성자 정보를 가져오기 위해 join
                 .join(post.user, user)
+                .leftJoin(postImage)
+                .on(
+                        postImage.imageType.eq(ImageType.POST),
+                        postImage.referenceId.eq(post.id)
+                )
+                .leftJoin(writerProfileImage)
+                .on(
+                        writerProfileImage.imageType.eq(ImageType.USER),
+                        writerProfileImage.referenceId.eq(user.id)
+                )
                 // leftjoin -> 좋아요를 누른 사람도 안누른 사람도 있기 때문에 leftjoin을 안쓰면 좋아요가 없는 게시글은 조회 결과에 안나타남
                 // 좋아요 행이 있으면 같이 가져오고 없으면 null로 둠
                 // 이 left join으로 이 사용자가 이 게시글에 좋아요를 눌렀는지 안눌렀는지 확인함 이게 postLike.id.isNotNull()로 들어감

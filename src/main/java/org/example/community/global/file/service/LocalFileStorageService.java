@@ -1,7 +1,8 @@
-package org.example.community.global.file;
+package org.example.community.global.file.service;
 
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
+import org.example.community.global.file.dto.FileStoreResult;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
@@ -21,7 +22,7 @@ public class LocalFileStorageService implements FileStorageService {
 
 
     @Override
-    public String store(MultipartFile file,String directory) {
+    public FileStoreResult store(MultipartFile file, String directory) {
         if (file == null || file.isEmpty()) {
             return null;
         }
@@ -54,18 +55,28 @@ public class LocalFileStorageService implements FileStorageService {
             //실제 파일 저장
             file.transferTo(filePath);
 
-            return "/" + uploadDir + "/" + storedFilename;
+            // 클라이언트가 접근할 이미지 URL 생성
+            String imageUrl = "/" + uploadDir + "/" + storedFilename;
+
+            // 원래는 url만 반환하였다면 이제는 originalfilename과 storefilename 둘 다 반환
+            return new FileStoreResult(
+                    imageUrl,
+                    originalFilename,
+                    storedFilename
+            );
 
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
     }
 
+    // 확장자를 잘라내는 함수
     private String extractExtension(String originalFilename) {
+        // 파일명이 없거나, .이 없으면 확장자를 찾을 수 없음
         if (originalFilename == null || !originalFilename.contains(".")) {
             return "";
         }
-
+        // . 부터 끝까지 잘라냄(lastIndexOF 이기 때문에 마지막 점을 기준으로)
         return originalFilename.substring(originalFilename.lastIndexOf("."));
     }
 }

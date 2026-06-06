@@ -4,7 +4,10 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
-import org.example.community.global.file.FileStorageService;
+import org.example.community.image.entity.Image;
+import org.example.community.image.entity.ImageType;
+import org.example.community.image.repository.ImageRepository;
+import org.example.community.post.dto.request.PostUpdateRequest;
 import org.example.community.post.entity.Post;
 import org.example.community.post.dto.request.PostCreateRequest;
 import org.example.community.post.dto.response.*;
@@ -13,7 +16,6 @@ import org.example.community.user.entity.User;
 import org.example.community.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
@@ -39,9 +41,9 @@ public class PostService {
      */
     private static final int MAX_SIZE = 50;
 
-    private final FileStorageService fileStorageService;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final ImageRepository imageRepository;
     /**
      * ObjectMapper는 java 객체와 JSON 문자열을 변환하는 도구
      * import com.fasterxml.jackson.databind.ObjectMapper;
@@ -183,7 +185,7 @@ public class PostService {
     }
 
     @Transactional
-    public PostCreateResponse createPost(Long loginUserId,PostCreateRequest request, MultipartFile image) {
+    public PostCreateResponse createPost(Long loginUserId,PostCreateRequest request) {
 
         /**
          * 게시글 작성자는 로그인한 사용자이므로 loginUserId로 User 엔티티를 조회한다.
@@ -200,13 +202,27 @@ public class PostService {
          * DB에는 실제 파일 자체가 아니라 저장된 파일 경로 문자열을 저장한다.
          * 이미지가 없으면 imageUrl은 null로 저장된다.
          */
-        String imageUrl = fileStorageService.store(image,"posts");
+        Image image = null;
+
+        if (request.getImageId() != null) {
+            // 여기서 요청으로 온 imageId를 가지고 이미지를 찾는다.
+            image = imageRepository.findById(request.getImageId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
+
+            // 그리고 그 이미지가 POST타입이 맞는지 확인
+            if (image.getImageType() != ImageType.POST) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+            // 다른 게시글의 image_id를 참조하면 그 이미지를 뺏어서 방지
+            if (image.getReferenceId() != null) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+        }
 
         Post post = Post.create(
                 user,
                 request.getTitle(),
-                request.getContent(),
-                imageUrl
+                request.getContent()
 
         );
         /**
@@ -215,6 +231,25 @@ public class PostService {
          */
         Post savedPost = postRepository.save(post);
 
+        // 여기서 referenceId를 postId와 연결
+        if (image != null) {
+            image.connectReference(savedPost.getId());
+        }
+
+        // 이제 post 엔티티에 imageUrl을 가져올 수 없기 때문에
+        // 직접 image에서 꺼내옴
+        String responseImageUrl = image != null ? image.getImageUrl() : null;
+
+        //작성자의 프로필 이미지를 직접 가져와야함
+        //이걸 QueryDSL이나 @Query로 하는게 나을까
+        Image writerProfileImage = imageRepository
+                .findByImageTypeAndReferenceId(ImageType.USER, savedPost.getUser().getId())
+                .orElse(null);
+
+        String writerProfileImageUrl = writerProfileImage != null
+                ? writerProfileImage.getImageUrl()
+                : null;
+
         /**
          * 응답 DTO는 Service에서 저장된 엔티티 값을 이용해 직접 생성
          */
@@ -222,12 +257,12 @@ public class PostService {
                 savedPost.getId(),
                 savedPost.getTitle(),
                 savedPost.getContent(),
-                savedPost.getImageUrl(),
+                responseImageUrl,
                 savedPost.getCreatedAt(),
                 new PostWriterResponse(
                         savedPost.getUser().getId(),
                         savedPost.getUser().getNickname(),
-                        savedPost.getUser().getProfileImage()
+                        writerProfileImageUrl
                 )
         );
 
@@ -258,13 +293,12 @@ public class PostService {
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
     }
 
+    // 게시글 수정할 때 새 이미지가 들어오면 기존 이미지 연결을 끊고 새 이미지를 연결함
     @Transactional
     public PostUpdateResponse updatePost(
             Long postId,
             Long loginUserId,
-            String title,
-            String content,
-            MultipartFile image
+            PostUpdateRequest request
     ) {
         Post post = postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
@@ -273,19 +307,47 @@ public class PostService {
             throw new CustomException(ErrorCode.POST_FORBIDDEN);
         }
 
-        /**
-         * 새 이미지가 있으면 저장하고, 없으면 기존 이미지 URL을 유지한다.
-         *
-         * 기존 코드처럼 imageUrl을 null로 두고 update하면
-         * 이미지가 없는 수정 요청에서 기존 이미지가 null로 바뀜
-         * 기존에는 COALESCE를 이용하여 imageUrl이 null이면 기존값을 이용했음 -> SQL이용
-         */
-        String imageUrl = post.getImageUrl();
+        // 현재 게시글에 연결되어 있는 기존 이미지
+        Image currentImage = imageRepository
+                .findByImageTypeAndReferenceId(ImageType.POST, post.getId())
+                .orElse(null);
 
-        if (image != null && !image.isEmpty()) {
-            imageUrl = fileStorageService.store(image, "posts");
+        // 응답에 내려줄 이미지, DB 조회 중복을 줄이기 위해 복사해둠
+        Image responseImage = currentImage;
+
+
+        // 새 이미지가있다면 게시글과 연결된 이미지를 찾고 연결을 끊음
+        if (request.getImageId() != null) {
+            // 요청으로 온 imageId로 새 이미지 조회
+            Image newImage = imageRepository.findById(request.getImageId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
+
+            // 게시글 이미지 타입인지 확인
+            if (newImage.getImageType() != ImageType.POST) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+
+            // 이미 다른 게시글에 연결되어있다면, 그 연결된 post_id가 로그인한 사용자와 다르다면 예외처리
+            if (newImage.getReferenceId() != null
+                    && !newImage.getReferenceId().equals(post.getId())) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+
+            if (currentImage != null) {
+                currentImage.disconnectReference();
+            }
+
+            // 새 이미지를 현재 게시글과 연결
+            newImage.connectReference(post.getId());
+            // 기존 연결이미지를 찾아둔걸 newImage로 바꿈
+            responseImage = newImage;
+
         }
-        post.updatePost(title, content, imageUrl);
+
+        post.updatePost(
+                request.getTitle(),
+                request.getContent()
+        );
 
         /**
          * 처음에는 수정 후에 영속상태의 post값을 가져오려고했으나
@@ -294,11 +356,14 @@ public class PostService {
          */
         postRepository.flush();
 
+        // 기존의 이미지나 새로운 이미지가 저장된 객체의 Url을 저장
+        String responseImageUrl = responseImage != null ? responseImage.getImageUrl() : null;
+
         return new PostUpdateResponse(
                 post.getId(),
                 post.getTitle(),
                 post.getContent(),
-                post.getImageUrl(),
+                responseImageUrl,
                 post.getUpdatedAt()
         );
     }

@@ -35,6 +35,7 @@ public class SignupRequest {
      * JSON에서의 snake_case와 Java에서의 camelCase를 서로 맞춰주기 위해 JSONProperty 사용
      */
     @NotBlank
+    @JsonProperty("password_confirm")
     private String passwordConfirm;
 
     /**
@@ -44,5 +45,8 @@ public class SignupRequest {
     @Size(max = 10)
     @Pattern(regexp = "^\\S+$")
     private String nickname;
+
+    @JsonProperty("image_id")
+    private Long imageId;
 
 }

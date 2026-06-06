@@ -167,6 +167,15 @@ public enum ErrorCode {
     ),
 
     /**
+     * 이미지가 존재하지 않을 때
+     */
+    IMAGE_NOT_FOUND(
+            HttpStatus.NOT_FOUND,
+            "IMAGE_NOT_FOUND",
+            "이미지를 찾을 수 없습니다."
+    ),
+
+    /**
      * 예상하지 못한 서버 내부 오류
      */
     INTERNAL_SERVER_ERROR(
