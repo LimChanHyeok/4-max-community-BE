@@ -378,6 +378,11 @@ public class PostService {
             throw new CustomException(ErrorCode.POST_DELETE_FORBIDDEN);
         }
 
+        //이미지와는 FK로 연결되어있는 것이 아니기 때문에 disconnect를 시켜줘야함
+        //그래야 나중에 referenceid가 null것을 모아 한번에 삭제할 수 있음
+        imageRepository.findByImageTypeAndReferenceId(ImageType.POST, post.getId())
+                .ifPresent(Image::disconnectReference);
+
         postRepository.delete(post);
     }
 

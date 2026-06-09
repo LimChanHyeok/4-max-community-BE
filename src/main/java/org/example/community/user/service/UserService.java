@@ -181,6 +181,11 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 유저 프로필 이미지가 연결되어 있다면 연결 해제
+        // 이미지가 FK로 연결되어 있는것이 아니기 때문에 연결해제를 해줘야함
+        imageRepository.findByImageTypeAndReferenceId(ImageType.USER, user.getId())
+                .ifPresent(Image::disconnectReference);
+
         // userId기반으로 찾았으므로 user객체 그대로 삭제
         userRepository.delete(user);
     }
