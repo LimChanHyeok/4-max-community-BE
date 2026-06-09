@@ -34,9 +34,9 @@ public class SignupRequest {
      * 비밀번호 확인값
      * JSON에서의 snake_case와 Java에서의 camelCase를 서로 맞춰주기 위해 JSONProperty 사용
      */
-    @NotBlank
-    @JsonProperty("password_confirm")
-    private String passwordConfirm;
+//    @NotBlank
+//    @JsonProperty("password_confirm")
+//    private String passwordConfirm;
 
     /**
      * 최대10글자, 공백 안됨

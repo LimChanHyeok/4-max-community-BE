@@ -54,6 +54,17 @@ public enum ErrorCode {
             "DUPLICATE_USER",
             "이미 사용 중인 이메일 또는 닉네임입니다."
     ),
+    DUPLICATE_EMAIL(
+            HttpStatus.CONFLICT,
+            "DUPLICATE_EMAIL",
+            "이미 사용 중인 이메일입니다."
+    ),
+
+    DUPLICATE_NICKNAME(
+            HttpStatus.CONFLICT,
+            "DUPLICATE_NICKNAME",
+            "이미 사용 중인 닉네임입니다."
+    ),
     /**
      * 존재하지 않는 회원을 조회한 경우
      */

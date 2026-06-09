@@ -103,4 +103,27 @@ public class UserController {
                 ApiResponse.success("회원정보 삭제에 성공했습니다.", null)
         );
     }
+    // 이메일 중복 체크(check는 동사인데 어떤걸 해야할지 고민.. 일단 프론트에서 쓴 check로 함
+    @GetMapping("/email/check")
+    public ResponseEntity<ApiResponse<Void>> checkEmail(
+            @RequestParam String email
+    ) {
+        userService.checkEmail(email);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("사용 가능한 이메일입니다.", null)
+        );
+    }
+
+    //닉네임 중복 체크
+    @GetMapping("/nickname/check")
+    public ResponseEntity<ApiResponse<Void>> checkNickname(
+            @RequestParam String nickname
+    ) {
+        userService.checkNickname(nickname);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("사용 가능한 닉네임입니다.", null)
+        );
+    }
 }

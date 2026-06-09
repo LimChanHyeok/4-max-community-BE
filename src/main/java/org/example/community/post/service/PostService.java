@@ -236,35 +236,19 @@ public class PostService {
             image.connectReference(savedPost.getId());
         }
 
-        // 이제 post 엔티티에 imageUrl을 가져올 수 없기 때문에
-        // 직접 image에서 꺼내옴
-        String responseImageUrl = image != null ? image.getImageUrl() : null;
-
-        //작성자의 프로필 이미지를 직접 가져와야함
-        //이걸 QueryDSL이나 @Query로 하는게 나을까
-        Image writerProfileImage = imageRepository
-                .findByImageTypeAndReferenceId(ImageType.USER, savedPost.getUser().getId())
-                .orElse(null);
-
-        String writerProfileImageUrl = writerProfileImage != null
-                ? writerProfileImage.getImageUrl()
-                : null;
-
+        /**
+         * QueryDSL로 응답 DTO를 다시 조회하기 전에 flush를 호출
+         *
+         * image.connectReference(savedPost.getId())로 변경한 images.reference_id 값이
+         * 아직 DB에 반영되지 않은 상태일 수 있기 때문에,
+         * QueryDSL 조회 전에 영속성 컨텍스트의 변경 내용을 DB에 반영한다.
+         */
+        postRepository.flush();
         /**
          * 응답 DTO는 Service에서 저장된 엔티티 값을 이용해 직접 생성
          */
-        return new PostCreateResponse(
-                savedPost.getId(),
-                savedPost.getTitle(),
-                savedPost.getContent(),
-                responseImageUrl,
-                savedPost.getCreatedAt(),
-                new PostWriterResponse(
-                        savedPost.getUser().getId(),
-                        savedPost.getUser().getNickname(),
-                        writerProfileImageUrl
-                )
-        );
+        return postRepository.findCreateResponseById(savedPost.getId())
+                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
     }
 

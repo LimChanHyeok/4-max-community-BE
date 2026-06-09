@@ -39,9 +39,9 @@ public class UserService {
     // 매개변수 request로 축소시킴
     public User signup(SignupRequest request) {
 
-        if (!request.getPassword().equals(request.getPasswordConfirm())) {
-            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
-        }
+//        if (!request.getPassword().equals(request.getPasswordConfirm())) {
+//            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
+//        }
 
         if (userRepository.existsByEmail(request.getEmail()) ||
                 userRepository.existsByNickname(request.getNickname())) {
@@ -190,5 +190,18 @@ public class UserService {
         userRepository.delete(user);
     }
 
+    @Transactional(readOnly = true)
+    public void checkEmail(String email) {
+        if (userRepository.existsByEmail(email)) {
+            throw new CustomException(ErrorCode.DUPLICATE_EMAIL);
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public void checkNickname(String nickname) {
+        if (userRepository.existsByNickname(nickname)) {
+            throw new CustomException(ErrorCode.DUPLICATE_NICKNAME);
+        }
+    }
 
 }

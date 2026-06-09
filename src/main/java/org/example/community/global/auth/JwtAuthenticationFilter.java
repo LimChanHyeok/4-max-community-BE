@@ -79,6 +79,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return uri.equals("/auth")
                 || uri.equals("/auth/reissue")
                 || uri.equals("/users")
+                || uri.equals("/users/email/check")
+                || uri.equals("/users/nickname/check")
                 || uri.startsWith("/uploads/")
                 || uri.equals("/images/profiles");
     }

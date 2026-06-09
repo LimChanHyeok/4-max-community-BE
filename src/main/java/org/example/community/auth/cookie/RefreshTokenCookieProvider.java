@@ -28,4 +28,20 @@ public class RefreshTokenCookieProvider {
                 .sameSite("Lax")
                 .build();
     }
+
+    /**
+     * refreshToken 쿠키를 삭제하기 위한 쿠키를 만드는 메서드
+     *
+     * 쿠키는 서버가 직접 브라우저에서 삭제할 수 없기 때문에,
+     * 같은 이름, 같은 path를 가진 쿠키를 maxAge(0)으로 다시 보내서 즉시 만료시킴
+     */
+    public ResponseCookie deleteRefreshTokenCookie() {
+        return ResponseCookie.from("refreshToken", "")
+                .httpOnly(true)
+                .secure(false)
+                .path("/")
+                .maxAge(0)
+                .sameSite("Lax")
+                .build();
+    }
 }
