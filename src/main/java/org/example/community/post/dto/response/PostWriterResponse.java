@@ -24,6 +24,6 @@ public class PostWriterResponse {
 
     private String nickname;
 
-    @JsonProperty("profile_image")
-    private String profileImage;
+    @JsonProperty("profile_image_url")
+    private String profileImageUrl;
 }
