@@ -1,20 +1,24 @@
 package org.example.community.user.service;
 
 import lombok.RequiredArgsConstructor;
-import org.example.community.auth.domain.RefreshToken;
 import org.example.community.auth.repository.RefreshTokenRepository;
 import org.example.community.global.auth.JwtProvider;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
-import org.example.community.global.file.FileStorageService;
-import org.example.community.user.domain.User;
+import org.example.community.global.file.dto.FileStoreResult;
+import org.example.community.global.file.service.FileStorageService;
+import org.example.community.image.entity.Image;
+import org.example.community.image.entity.ImageType;
+import org.example.community.image.repository.ImageRepository;
+import org.example.community.user.dto.request.SignupRequest;
+import org.example.community.user.dto.request.UserUpdateRequest;
 import org.example.community.user.dto.response.UserProfileResponse;
 import org.example.community.user.dto.response.UserUpdateResponse;
+import org.example.community.user.entity.User;
 import org.example.community.user.repository.UserRepository;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.example.community.auth.dto.response.LoginResponse;
 import org.springframework.web.multipart.MultipartFile;
 
 @Service
@@ -23,10 +27,8 @@ public class UserService {
 
     private final PasswordEncoder passwordEncoder;
     private final UserRepository userRepository;
-    private final FileStorageService fileStorageService;
-    //JWT관련 클래스 추가
-    private final JwtProvider jwtProvider;
-    private final RefreshTokenRepository refreshTokenRepository;
+
+    private final ImageRepository imageRepository;
 
     /**
      * signup이라는 하나의 흐름 속에서 중간에 문제가 생긴다면 저장이 되면 안되고
@@ -34,32 +36,52 @@ public class UserService {
      * Transactional을 추가하였음
      */
     @Transactional
-    public User signup(String email, String password, String passwordConfirm,
-                       String nickname, MultipartFile profileImage) {
+    // 매개변수 request로 축소시킴
+    public User signup(SignupRequest request) {
 
-        if (!password.equals(passwordConfirm)) {
+        if (!request.getPassword().equals(request.getPasswordConfirm())) {
             throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
         }
 
-        if (userRepository.existsByEmail(email) || userRepository.existsByNickname(nickname)) {
+        if (userRepository.existsByEmail(request.getEmail()) ||
+                userRepository.existsByNickname(request.getNickname())) {
             throw new CustomException(ErrorCode.DUPLICATE_USER);
         }
 
-        String encodedPassword = passwordEncoder.encode(password);
+        Image profileImage = null;
 
-        String profileImageUrl = fileStorageService.store(profileImage,"profiles");
+        if (request.getImageId() != null) {
+            profileImage = imageRepository.findById(request.getImageId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
 
-        User user = new User(
-                null,
-                email,
+            if (profileImage.getImageType() != ImageType.USER) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+
+            // 본인것이 아닌 image_id를 참조하면 다른 사용자의 이미지를 뺏어버리는 걸 테스트하다 확인
+            // 회원가입시에는 id가 없기 때문에 referenceId가 있다면 무조건 차단
+            if (profileImage.getReferenceId() != null) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+
+        }
+
+        String encodedPassword = passwordEncoder.encode(request.getPassword());
+
+        User user = User.create(
+                request.getEmail(),
                 encodedPassword,
-                nickname,
-                profileImageUrl,
-                null,
-                null
+                request.getNickname()
         );
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+
+        // 어기서 래퍼런스아이디와 userId를 연결해줌
+        if (profileImage != null) {
+            profileImage.connectReference(savedUser.getId());
+        }
+
+        return savedUser;
     }
 
 
@@ -68,56 +90,68 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        Image profileImage = imageRepository
+                .findByImageTypeAndReferenceId(ImageType.USER, user.getId())
+                .orElse(null);
+
+        String profileImageUrl = profileImage != null ? profileImage.getImageUrl() : null;
+
         return new UserProfileResponse(
                 user.getId(),
                 user.getNickname(),
-                user.getProfileImage(),
+                profileImageUrl,
                 user.getCreatedAt()
         );
     }
 
     @Transactional
-    public UserUpdateResponse updateUser(
-            Long userId,
-            String nickname,
-            MultipartFile profileImage
-    ) {
-        /**
-         * userId가 없다면 USER_NOT_FOUND 에러 던짐
-         */
+    public UserUpdateResponse updateUser(Long userId, UserUpdateRequest request) {
+
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        // 현재 유저에게 연결된 기존 프로필 이미지 조회
+        Image responseImage = imageRepository
+                .findByImageTypeAndReferenceId(ImageType.USER, user.getId())
+                .orElse(null);
 
-        String profileImageUrl = null;
+        // 수정할 이미지가 왔다면 그 이미지의 id를 가지고 옴
+        if (request.getImageId() != null) {
+            // 만약 이미지가 없다면 예외 처리
+            Image newProfileImage = imageRepository.findById(request.getImageId())
+                    .orElseThrow(() -> new CustomException(ErrorCode.IMAGE_NOT_FOUND));
+            // 이미지타입이 유저라 아니라면 예외처리
+            if (newProfileImage.getImageType() != ImageType.USER) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
 
-        /**
-         * profileImage != null -> 프로필 이미지가 실제로 들어왔는지 확인하는 부분
-         * !profileImage.isEmpty() -> 파일이 비어있지 않은지 확인하는 부분
-         * 밑에 조건식을 만족한다는 건 프로필 이미지 파일이 들어왔다는 것
-         * 그렇다면 파일을 uploads/profiles폴더에 저장하고 저장된 이미지 경로를 ProfileImageUrl에 넣는다.
-         */
-        if (profileImage != null && !profileImage.isEmpty()) {
-            profileImageUrl = fileStorageService.store(profileImage, "profiles");
+            // 테스트를 하던 중 다른 image_id를 넣게 되면 다른 사람의 이미지를 뺏어버리는 걸 확인
+            // 따라서 referenceId가 있고, 그 아이디가 로그인한 사용자와 다르다면 예외처리하는 걸 추가함
+            if (newProfileImage.getReferenceId() != null
+                    && !newProfileImage.getReferenceId().equals(user.getId())) {
+                throw new CustomException(ErrorCode.BAD_REQUEST);
+            }
+            //현재 유저에게 연결되어있던 기존 프로필을 찾은다음 연결을 끊어냄 referenceId를 null로 만듬
+            imageRepository.findByImageTypeAndReferenceId(ImageType.USER, user.getId())
+                    .ifPresent(Image::disconnectReference);
+
+            // 새 이미지에 현재 유저 id연결
+            newProfileImage.connectReference(user.getId());
+
+            // 응답에는 새 이미지 URL이 나가야 하므로 responseImage 교체
+            responseImage = newProfileImage;
         }
 
-        userRepository.updateProfile(
-                user.getId(),
-                nickname,
-                profileImageUrl
-        );
+        // user엔티티에는 이제 profileImage가 없기 때문에 닉네임만 변경
+        user.updateProfile(request.getNickname());
 
-        /**
-         * DB 수정이 끝나고 다시 조회하는 코드
-         * 수정된 최신값을 응답으로 내려주기 위해서
-         */
-        User updatedUser = userRepository.findById(user.getId())
-                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+        // reponseImage에 있을 기존 사진이나, 새 사진, 또는 null값을 담는다
+        String profileImageUrl = responseImage != null ? responseImage.getImageUrl() : null;
 
         return new UserUpdateResponse(
-                updatedUser.getId(),
-                updatedUser.getNickname(),
-                updatedUser.getProfileImage()
+                user.getId(),
+                user.getNickname(),
+                profileImageUrl
         );
     }
 
@@ -139,7 +173,7 @@ public class UserService {
          */
         String encodedPassword = passwordEncoder.encode(password);
 
-        userRepository.updatePassword(user.getId(), encodedPassword);
+        user.updatePassword(encodedPassword);
     }
 
     @Transactional
@@ -147,7 +181,8 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
-        userRepository.deleteById(user.getId());
+        // userId기반으로 찾았으므로 user객체 그대로 삭제
+        userRepository.delete(user);
     }
 
 

@@ -40,19 +40,16 @@ public class PostController {
     }
 
     /**
-     * consumes = MediaType.MULTIPART_FORM_DATA_VALUE) -> API 가 받을 수 있는 요청 형식 지정
-     * @Valid @ModelAttribute PostCreateRequest request -> multipart 요청안엔 필드도 있고 바이너리(이미지)도 있으니까
-     * 일반 텍스트값은 DTO에 담겠다 라는것
+     *이제 게시글은 json만 받기 때문에 Multipart 삭제
      */
-    @PostMapping(consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping
     public ResponseEntity<ApiResponse<PostCreateResponse>> createPost(
-            @Valid @ModelAttribute PostCreateRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image,
+            @Valid @RequestBody PostCreateRequest request,
             HttpServletRequest httpServletRequest
     ) {
         Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
-        PostCreateResponse response = postService.createPost(loginUserId,request, image);
+        PostCreateResponse response = postService.createPost(loginUserId, request);
 
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("게시글 등록에 성공했습니다.", response));
@@ -77,12 +74,12 @@ public class PostController {
 
     /**
      * POST의 일부 내용을 수정할 수 있으니 PATCH사용
+     * 이미지를 json으로만 받기 때문에 Multipart 제거
      */
-    @PatchMapping(value = "/{postId}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PatchMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostUpdateResponse>> updatePost(
             @PathVariable Long postId,
-            @Valid @ModelAttribute PostUpdateRequest request,
-            @RequestPart(value = "image", required = false) MultipartFile image,
+            @Valid @RequestBody PostUpdateRequest request,
             HttpServletRequest httpServletRequest
     ) {
         Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
@@ -90,9 +87,7 @@ public class PostController {
         PostUpdateResponse response = postService.updatePost(
                 postId,
                 loginUserId,
-                request.getTitle(),
-                request.getContent(),
-                image
+                request
         );
 
         return ResponseEntity.ok(

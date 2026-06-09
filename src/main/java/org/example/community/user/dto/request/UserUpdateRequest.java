@@ -1,5 +1,6 @@
 package org.example.community.user.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
 import lombok.Setter;
@@ -22,4 +23,7 @@ public class UserUpdateRequest {
      */
     @Size(max = 10, message = "닉네임은 최대 10자까지 가능합니다.")
     private String nickname;
+
+    @JsonProperty("image_id")
+    private Long imageId;
 }

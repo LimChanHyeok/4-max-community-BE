@@ -1,5 +1,6 @@
 package org.example.community.post.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Getter;
@@ -27,4 +28,7 @@ public class PostUpdateRequest {
      */
     @NotBlank(message = "내용은 필수 입력값입니다.")
     private String content;
+
+    @JsonProperty("image_id")
+    private Long imageId;
 }
