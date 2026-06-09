@@ -12,6 +12,7 @@ import org.example.community.image.entity.ImageType;
 import org.example.community.image.repository.ImageRepository;
 import org.example.community.user.dto.request.SignupRequest;
 import org.example.community.user.dto.request.UserUpdateRequest;
+import org.example.community.user.dto.response.UserMeResponse;
 import org.example.community.user.dto.response.UserProfileResponse;
 import org.example.community.user.dto.response.UserUpdateResponse;
 import org.example.community.user.entity.User;
@@ -103,6 +104,25 @@ public class UserService {
                 user.getCreatedAt()
         );
     }
+    // GET users/me 를 위한 메소드 email을 추가로 응답해줌
+    @Transactional(readOnly = true)
+    public UserMeResponse getMyInfo(Long loginUserId) {
+        User user = userRepository.findById(loginUserId)
+                .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
+
+        Image profileImage = imageRepository
+                .findByImageTypeAndReferenceId(ImageType.USER, user.getId())
+                .orElse(null);
+
+        String profileImageUrl = profileImage != null ? profileImage.getImageUrl() : null;
+
+        return new UserMeResponse(
+                user.getId(),
+                user.getEmail(),
+                user.getNickname(),
+                profileImageUrl
+        );
+    }
 
     @Transactional
     public UserUpdateResponse updateUser(Long userId, UserUpdateRequest request) {
@@ -158,15 +178,10 @@ public class UserService {
     @Transactional
     public void updatePassword(
             Long userId,
-            String password,
-            String passwordConfirm
+            String password
     ) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
-
-        if (!password.equals(passwordConfirm)) {
-            throw new CustomException(ErrorCode.PASSWORD_MISMATCH);
-        }
 
         /**
          * 비밀번호 인코딩 후 updatePassword로 전달

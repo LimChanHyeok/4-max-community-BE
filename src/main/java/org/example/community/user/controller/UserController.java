@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.global.response.ApiResponse;
+import org.example.community.user.dto.response.UserMeResponse;
 import org.example.community.user.entity.User;
 import org.example.community.user.dto.request.PasswordUpdateRequest;
 import org.example.community.user.dto.request.SignupRequest;
@@ -54,6 +55,19 @@ public class UserController {
         );
     }
 
+    @GetMapping("/me")
+    public ResponseEntity<ApiResponse<UserMeResponse>> getMyInfo(
+            HttpServletRequest httpServletRequest
+    ) {
+        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
+
+        UserMeResponse response = userService.getMyInfo(loginUserId);
+
+        return ResponseEntity.ok(
+                ApiResponse.success("내 정보 조회에 성공했습니다.", response)
+        );
+    }
+
     @PatchMapping("/me")
     public ResponseEntity<ApiResponse<UserUpdateResponse>> updateUser(
             @Valid @RequestBody UserUpdateRequest request,
@@ -83,8 +97,7 @@ public class UserController {
 
         userService.updatePassword(
                 loginUserId,
-                request.getPassword(),
-                request.getPasswordConfirm()
+                request.getPassword()
         );
 
         return ResponseEntity.ok(
