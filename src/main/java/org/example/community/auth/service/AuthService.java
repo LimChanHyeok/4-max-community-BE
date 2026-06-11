@@ -119,4 +119,14 @@ public class AuthService {
         // 새 토큰 응답
         return new AuthTokenResult(newAccessToken, newRefreshToken, "Bearer");
     }
+
+    @Transactional
+    public void logout(String refreshToken) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+
+        refreshTokenRepository.deleteByToken(refreshToken);
+    }
 }

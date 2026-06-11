@@ -6,9 +6,12 @@ import com.querydsl.jpa.impl.JPAQueryFactory;
 import lombok.RequiredArgsConstructor;
 import org.example.community.image.entity.ImageType;
 import org.example.community.image.entity.QImage;
+import org.example.community.post.dto.response.PostCreateResponse;
 import org.example.community.post.dto.response.PostDetailResponse;
 import org.example.community.post.dto.response.PostSummaryResponse;
 import org.example.community.post.dto.response.PostWriterResponse;
+import org.example.community.post.entity.QPost;
+import org.example.community.user.entity.QUser;
 
 import java.util.List;
 import java.util.Optional;
@@ -118,6 +121,48 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                 .fetchOne();
         // null값이 나올 수 있기 때문에 ofNullable로 감쌈
         return Optional.ofNullable(result);
+    }
+
+    @Override
+    public Optional<PostCreateResponse> findCreateResponseById(Long postId) {
+
+        QPost post = QPost.post;
+        QUser user = QUser.user;
+
+        QImage postImage = new QImage("postImage");
+        QImage writerProfileImage = new QImage("writerProfileImage");
+
+        PostCreateResponse response = queryFactory
+                .select(Projections.constructor(
+                        PostCreateResponse.class,
+                        post.id,
+                        post.title,
+                        post.content,
+                        postImage.imageUrl,
+                        post.createdAt,
+                        Projections.constructor(
+                                PostWriterResponse.class,
+                                user.id,
+                                user.nickname,
+                                writerProfileImage.imageUrl
+                        )
+                ))
+                .from(post)
+                .join(post.user, user)
+                .leftJoin(postImage)
+                .on(
+                        postImage.imageType.eq(ImageType.POST),
+                        postImage.referenceId.eq(post.id)
+                )
+                .leftJoin(writerProfileImage)
+                .on(
+                        writerProfileImage.imageType.eq(ImageType.USER),
+                        writerProfileImage.referenceId.eq(user.id)
+                )
+                .where(post.id.eq(postId))
+                .fetchOne();
+
+        return Optional.ofNullable(response);
     }
 
 }

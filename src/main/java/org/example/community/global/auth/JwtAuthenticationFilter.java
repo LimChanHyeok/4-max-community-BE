@@ -30,7 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
         // 여기서 인증이 필요한지 안필요한지 확인
         if (isExcludedPath(request)) {
-            filterChain.doFilter(request, response);
+            filterChain.doFilter(request,response);
             return;
         }
 
@@ -79,6 +79,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return uri.equals("/auth")
                 || uri.equals("/auth/reissue")
                 || uri.equals("/users")
+                || uri.equals("/users/email/check")
+                || uri.equals("/users/nickname/check")
                 || uri.startsWith("/uploads/")
                 || uri.equals("/images/profiles");
     }

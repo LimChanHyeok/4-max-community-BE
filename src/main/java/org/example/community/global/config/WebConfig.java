@@ -1,6 +1,7 @@
 package org.example.community.global.config;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -17,6 +18,9 @@ import java.nio.file.Paths;
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
+    @Value("${app.upload.base-dir}")
+    private String uploadBaseDir;
+
     /**
      * 정적 리소스(이미지 파일) 경로를 추가 설정하는 메소드
      */
@@ -27,20 +31,10 @@ public class WebConfig implements WebMvcConfigurer {
          * toAbsolutepath()-> 상대경로를 절대 경로로 바꾸는 것
          * toUri() -> file:/Users/max/project/community/uploads/ 이런식으로 바꿈
          */
-        String uploadPath = Paths.get("uploads").toAbsolutePath().toUri().toString();
+        String uploadPath = Paths.get(uploadBaseDir).toAbsolutePath().toUri().toString();
 
         registry.addResourceHandler("/uploads/**")
                 .addResourceLocations(uploadPath);
-    }
-
-    @Override
-    public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**")
-                .allowedOrigins("http://localhost:3000")
-                .allowedMethods("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS")
-                .allowedHeaders("*")
-                // 브라우저가 HttpOnly Refresh Token쿠키를 저장하고, 재발급 요청 때 쿠키를 같이 보낼 수 있음
-                .allowCredentials(true);
     }
 
 }

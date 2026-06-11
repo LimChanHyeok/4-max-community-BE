@@ -78,4 +78,17 @@ public class AuthController {
                 .header(HttpHeaders.SET_COOKIE, refreshTokenCookie.toString())
                 .body(ApiResponse.success("토큰 재발급에 성공했습니다.", response));
     }
+
+    @DeleteMapping
+    public ResponseEntity<ApiResponse<Void>> logout(
+            @CookieValue(name = "refreshToken", required = false) String refreshToken
+    ) {
+        authService.logout(refreshToken);
+
+        ResponseCookie deleteCookie = refreshTokenCookieProvider.deleteRefreshTokenCookie();
+
+        return ResponseEntity.ok()
+                .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
+                .body(ApiResponse.success("로그아웃에 성공했습니다.", null));
+    }
 }
