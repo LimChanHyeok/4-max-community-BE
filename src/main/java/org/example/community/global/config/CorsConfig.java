@@ -1,5 +1,6 @@
 package org.example.community.global.config;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -11,6 +12,9 @@ import org.springframework.web.filter.CorsFilter;
 @Configuration
 public class CorsConfig {
 
+    @Value("${app.cors.allowed-origin}")
+    private String allowedOrigin;
+
     @Bean
     public FilterRegistrationBean<CorsFilter> corsFilter() {
         CorsConfiguration config = new CorsConfiguration();
@@ -20,7 +24,7 @@ public class CorsConfig {
 
         // 프론트 개발 서버 주소
         // 배포 시에는 실제 프론트 도메인으로 변경해야 함
-        config.addAllowedOrigin("http://localhost:3000");
+        config.addAllowedOrigin(allowedOrigin);
 
         // Authorization, Content-Type 등 모든 요청 헤더 허용
         config.addAllowedHeader("*");
