@@ -4,9 +4,12 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.auth.cookie.RefreshTokenCookieProvider;
 import org.example.community.auth.dto.request.LoginRequest;
+import org.example.community.auth.dto.response.AuthStatusResponse;
 import org.example.community.auth.dto.response.AuthTokenResult;
 import org.example.community.auth.dto.response.LoginResponse;
 import org.example.community.auth.service.AuthService;
+import org.example.community.global.exception.CustomException;
+import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.response.ApiResponse;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseCookie;
@@ -58,8 +61,15 @@ public class AuthController {
      */
     @PostMapping("/reissue")
     public ResponseEntity<ApiResponse<LoginResponse>> reissue(
-            @CookieValue(name = "refreshToken") String refreshToken
+            @CookieValue(
+                    name = "refreshToken",
+                    required = false
+            ) String refreshToken
     ) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_TOKEN);
+        }
         // 쿠키에서 꺼낸 Refresh Token을 서비스로 넘겨 새 토큰을 재 발급
         AuthTokenResult tokenResult = authService.reissue(refreshToken);
 
@@ -90,5 +100,26 @@ public class AuthController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.SET_COOKIE, deleteCookie.toString())
                 .body(ApiResponse.success("로그아웃에 성공했습니다.", null));
+    }
+
+    @GetMapping("/status")
+    public ResponseEntity<ApiResponse<AuthStatusResponse>> status(
+            @CookieValue(
+                    name = "refreshToken",
+                    required = false
+            ) String refreshToken
+    ) {
+        boolean authenticated =
+                authService.isAuthenticated(refreshToken);
+
+        AuthStatusResponse response =
+                new AuthStatusResponse(authenticated);
+
+        return ResponseEntity.ok(
+                ApiResponse.success(
+                        "로그인 상태 확인에 성공했습니다.",
+                        response
+                )
+        );
     }
 }
