@@ -1,13 +1,15 @@
 package org.example.community.global.config;
 
 import lombok.RequiredArgsConstructor;
+import org.example.community.global.auth.resolver.LoginUserArgumentResolver;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.web.servlet.config.annotation.CorsRegistry;
+import org.springframework.web.method.support.HandlerMethodArgumentResolver;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
 import java.nio.file.Paths;
+import java.util.List;
 
 /**
  * 프론트가 image_url을 받으면 그 값을 그대로 이미지 src에 넣는것을 즉, 요청을 실제 파일과 연결해주는것
@@ -17,6 +19,9 @@ import java.nio.file.Paths;
 @Configuration
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
+
+
+    private final LoginUserArgumentResolver loginUserArgumentResolver;
 
     @Value("${app.upload.base-dir}")
     private String uploadBaseDir;
@@ -37,4 +42,13 @@ public class WebConfig implements WebMvcConfigurer {
                 .addResourceLocations(uploadPath);
     }
 
+    /**
+     * 직접 만든 HandlerMethodArgumentResolver를 Spring MVC에 등록
+     */
+    @Override
+    public void addArgumentResolvers(
+            List<HandlerMethodArgumentResolver> resolvers
+    ) {
+        resolvers.add(loginUserArgumentResolver);
+    }
 }

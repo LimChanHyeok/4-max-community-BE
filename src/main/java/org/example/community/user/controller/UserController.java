@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.example.community.auth.cookie.RefreshTokenCookieProvider;
+import org.example.community.global.auth.annotation.LoginUser;
 import org.example.community.global.response.ApiResponse;
 import org.example.community.user.dto.response.UserMeResponse;
 import org.example.community.user.entity.User;
@@ -58,9 +59,8 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<UserMeResponse>> getMyInfo(
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         UserMeResponse response = userService.getMyInfo(loginUserId);
 
@@ -72,9 +72,8 @@ public class UserController {
     @PatchMapping("/me")
     public ResponseEntity<ApiResponse<UserUpdateResponse>> updateUser(
             @Valid @RequestBody UserUpdateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         UserUpdateResponse response = userService.updateUser(
                 loginUserId,
@@ -92,9 +91,8 @@ public class UserController {
     @PutMapping("/me/password")
     public ResponseEntity<ApiResponse<Void>> updatePassword(
             @Valid @RequestBody PasswordUpdateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         userService.updatePassword(
                 loginUserId,
@@ -107,9 +105,8 @@ public class UserController {
     }
 
     @DeleteMapping("/me")
-    public ResponseEntity<ApiResponse<Void>> deleteUser( HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ApiResponse<Void>> deleteUser( @LoginUser Long loginUserId) {
 
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         userService.deleteUser(loginUserId);
 
