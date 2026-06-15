@@ -21,6 +21,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     // 필터에서 인증 실패 응답을 ApiResponse로 내려주기 때문에 자바 객체를 JSON문자열로 바꿔주는 클래스가 필요함
     private final ObjectMapper objectMapper;
 
+    private final PublicEndpointMatcher publicEndpointMatcher;
+
     @Override
     protected void doFilterInternal(
             HttpServletRequest request,
@@ -29,8 +31,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     ) throws ServletException, IOException {
 
         // 여기서 인증이 필요한지 안필요한지 확인
-        if (isExcludedPath(request)) {
-            filterChain.doFilter(request,response);
+        if (publicEndpointMatcher.matches(request)) {
+            filterChain.doFilter(request, response);
             return;
         }
 
@@ -68,24 +70,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         return null;
     }
 
-    private boolean isExcludedPath(HttpServletRequest request) {
-        String uri = request.getRequestURI();
-        String method = request.getMethod();
-
-        if (method.equals("OPTIONS")) {
-            return true;
-        }
-
-        return uri.equals("/auth")
-                || uri.equals("/auth/reissue")
-                || uri.equals("/auth/status")
-                || uri.equals("/users")
-                || uri.equals("/users/email/check")
-                || uri.equals("/users/nickname/check")
-                || uri.startsWith("/uploads/")
-                || uri.equals("/images/profiles");
-    }
-
+    // GlobalExceptionHandler까지 가지 않기 때문에 filter에서 직접 응답을 만들어줌
     private void sendUnauthorizedResponse(HttpServletResponse response) throws IOException {
         //모두 인증실패 401을 반환
         ErrorCode errorCode = ErrorCode.INVALID_TOKEN;

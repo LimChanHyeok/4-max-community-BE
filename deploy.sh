@@ -4,7 +4,7 @@ set -Eeuo pipefail
 
 # EC2 접속 정보
 EC2_USER="ubuntu"
-EC2_HOST="52.79.250.142"
+EC2_HOST="52.79.86.237"
 PEM_KEY="$HOME/Desktop/pemkey/community-key.pem"
 
 # EC2에 새 버전으로 업로드할 경로
