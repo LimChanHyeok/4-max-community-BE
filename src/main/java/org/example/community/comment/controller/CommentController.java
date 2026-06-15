@@ -9,6 +9,7 @@ import org.example.community.comment.dto.response.CommentCreateResponse;
 import org.example.community.comment.dto.response.CommentListResponse;
 import org.example.community.comment.dto.response.CommentUpdateResponse;
 import org.example.community.comment.service.CommentService;
+import org.example.community.global.auth.annotation.LoginUser;
 import org.example.community.global.response.ApiResponse;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -25,9 +26,8 @@ public class CommentController {
     public ResponseEntity<ApiResponse<CommentCreateResponse>> createComment(
             @PathVariable Long postId,
             @Valid @RequestBody CommentCreateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         CommentCreateResponse response = commentService.createComment(
                 postId,
@@ -45,9 +45,8 @@ public class CommentController {
             @PathVariable Long postId,
             @RequestParam(required = false) String cursor,
             @RequestParam(required = false) Integer size,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         CommentListResponse response = commentService.getComments(
                 postId,
@@ -66,10 +65,8 @@ public class CommentController {
             @PathVariable Long postId,
             @PathVariable Long commentId,
             @Valid @RequestBody CommentUpdateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
-
         CommentUpdateResponse response = commentService.updateComment(
                 postId,
                 commentId,
@@ -86,10 +83,8 @@ public class CommentController {
     public ResponseEntity<ApiResponse<Void>> deleteComment(
             @PathVariable Long postId,
             @PathVariable Long commentId,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
-
         commentService.deleteComment(postId, commentId, loginUserId);
 
         return ResponseEntity.ok(

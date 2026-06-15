@@ -15,12 +15,14 @@ import java.nio.file.Paths;
 import java.util.UUID;
 
 /**
- * 나중에 배포환경에서를 위해 인터페이스를 만들고 local이라고 명시하였음
+ * prod 환경에서 파일 시스템에 파일을 저장하는 구현체
+ *
+ * 현재는 EC2 내부 디렉토리에 파일을 저장
+ * 나중에 S3를 사용하게 되면 이 클래스 내부 구현만 S3 업로드 방식으로 변경하면 된다.
  */
 @Service
-@Profile("local")
-public class LocalFileStorageService implements FileStorageService {
-
+@Profile("prod")
+public class ProdFileStorageService implements FileStorageService {
 
     @Value("${app.upload.base-dir}")
     private String baseDir;
@@ -34,37 +36,51 @@ public class LocalFileStorageService implements FileStorageService {
             return null;
         }
 
-
         try {
             /**
-             * Path로 바꾸는 코드
+             * baseDir과 directory를 합쳐 실제 저장 폴더 경로를 만든다.
+             * baseDir = /home/ubuntu/community/uploads
+             * directory = posts
+             * 결과 = /home/ubuntu/community/uploads/posts
              */
             Path uploadPath = Paths.get(baseDir, directory)
                     .toAbsolutePath()
                     .normalize();
 
-
             /**
-             * 폴더가 있는지 확인
+             * 폴더가 없으면 생성한다.
              */
             if (!Files.exists(uploadPath)) {
                 Files.createDirectories(uploadPath);
             }
-            // 원본 파일명 가져옴
+
+            // 원본 파일명 가져오기
             String originalFilename = file.getOriginalFilename();
-            // 원본 파일명에서 확장자만 꺼냄
+
+            // 원본 파일명에서 확장자만 추출
             String extension = extractExtension(originalFilename);
-            // 서버에 저장할 파일명을 새로 만듬 UUID 이용
+
+            // 서버에 저장할 파일명을 UUID로 생성
             String storedFilename = UUID.randomUUID() + extension;
-            // 저장 폴더와 파일명을 합쳐서 최종 저장 경로 만들기
-            Path filePath = uploadPath.resolve(storedFilename).normalize();
-            //실제 파일 저장
+
+            // 저장 폴더와 파일명을 합쳐 최종 저장 경로 생성
+            Path filePath = uploadPath.resolve(storedFilename)
+                    .normalize();
+
+            // 실제 파일 저장
             file.transferTo(filePath);
 
-            // 클라이언트가 접근할 이미지 URL 생성
+            /**
+             * 클라이언트가 접근할 이미지 URL 생성
+             *
+             * 예)
+             * baseUrl = /uploads
+             * directory = posts
+             * storedFilename = abc.jpg
+             * 결과 = /uploads/posts/abc.jpg
+             */
             String imageUrl = baseUrl + "/" + directory + "/" + storedFilename;
 
-            // 원래는 url만 반환하였다면 이제는 originalfilename과 storefilename 둘 다 반환
             return new FileStoreResult(
                     imageUrl,
                     originalFilename,
@@ -82,7 +98,8 @@ public class LocalFileStorageService implements FileStorageService {
         if (originalFilename == null || !originalFilename.contains(".")) {
             return "";
         }
-        // . 부터 끝까지 잘라냄(lastIndexOF 이기 때문에 마지막 점을 기준으로)
+
+        // 마지막 .부터 끝까지 잘라냄
         return originalFilename.substring(originalFilename.lastIndexOf("."));
     }
 }

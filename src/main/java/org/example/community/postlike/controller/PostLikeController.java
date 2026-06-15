@@ -2,6 +2,7 @@ package org.example.community.postlike.controller;
 
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
+import org.example.community.global.auth.annotation.LoginUser;
 import org.example.community.global.response.ApiResponse;
 import org.example.community.postlike.dto.response.PostLikeResponse;
 import org.example.community.postlike.service.PostLikeService;
@@ -18,10 +19,9 @@ public class PostLikeController {
     @PostMapping
     public ResponseEntity<ApiResponse<PostLikeResponse>> likePost(
             @PathVariable Long postId,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
 
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostLikeResponse response = postLikeService.likePost(postId, loginUserId);
 
@@ -33,9 +33,8 @@ public class PostLikeController {
     @DeleteMapping
     public ResponseEntity<ApiResponse<PostLikeResponse>> unlikePost(
             @PathVariable Long postId,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostLikeResponse response = postLikeService.unlikePost(postId, loginUserId);
 

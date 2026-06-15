@@ -119,4 +119,36 @@ public class AuthService {
         // 새 토큰 응답
         return new AuthTokenResult(newAccessToken, newRefreshToken, "Bearer");
     }
+
+    @Transactional
+    public void logout(String refreshToken) {
+
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return;
+        }
+
+        refreshTokenRepository.deleteByToken(refreshToken);
+    }
+    // jwt자체가 유효한지, DB에 저장된 refreshToken과 일치하는지 판단하는 메소드
+    @Transactional(readOnly = true)
+    public boolean isAuthenticated(String refreshToken) {
+        // 쿠키 자체가 없는 비로그인 상태
+        if (refreshToken == null || refreshToken.isBlank()) {
+            return false;
+        }
+
+        // JWT 형식, 서명, 만료 여부 확인
+        if (!jwtProvider.validateToken(refreshToken)) {
+            return false;
+        }
+
+        // 검증된 Refresh Token에서 userId 추출
+        Long userId = jwtProvider.getUserId(refreshToken);
+
+        // DB에 같은 Refresh Token이 존재하고,
+        // DB의 userId와 토큰의 userId가 같은지 확인, 추가 검증을 하는것
+        return refreshTokenRepository.findByToken(refreshToken)
+                .filter(savedToken -> savedToken.getUserId().equals(userId))
+                .isPresent();
+    }
 }

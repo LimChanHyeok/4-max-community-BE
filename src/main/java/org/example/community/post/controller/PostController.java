@@ -3,6 +3,7 @@ package org.example.community.post.controller;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.example.community.global.auth.annotation.LoginUser;
 import org.example.community.global.response.ApiResponse;
 import org.example.community.post.dto.request.PostCreateRequest;
 import org.example.community.post.dto.request.PostUpdateRequest;
@@ -12,10 +13,8 @@ import org.example.community.post.dto.response.PostListResponse;
 import org.example.community.post.dto.response.PostUpdateResponse;
 import org.example.community.post.service.PostService;
 import org.springframework.http.HttpStatus;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-import org.springframework.web.multipart.MultipartFile;
 
 @RestController
 @RequiredArgsConstructor
@@ -45,9 +44,8 @@ public class PostController {
     @PostMapping
     public ResponseEntity<ApiResponse<PostCreateResponse>> createPost(
             @Valid @RequestBody PostCreateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostCreateResponse response = postService.createPost(loginUserId, request);
 
@@ -58,9 +56,8 @@ public class PostController {
     @GetMapping("/{postId}")
     public ResponseEntity<ApiResponse<PostDetailResponse>> getPostDetail(
             @PathVariable Long postId,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostDetailResponse response = postService.getPostDetail(
                 postId,
@@ -80,9 +77,8 @@ public class PostController {
     public ResponseEntity<ApiResponse<PostUpdateResponse>> updatePost(
             @PathVariable Long postId,
             @Valid @RequestBody PostUpdateRequest request,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         PostUpdateResponse response = postService.updatePost(
                 postId,
@@ -98,9 +94,8 @@ public class PostController {
     @DeleteMapping("/{postId}")
     public ResponseEntity<ApiResponse<Void>> deletePost(
             @PathVariable Long postId,
-            HttpServletRequest httpServletRequest
+            @LoginUser Long loginUserId
     ) {
-        Long loginUserId = (Long) httpServletRequest.getAttribute("loginUserId");
 
         postService.deletePost(postId, loginUserId);
 
