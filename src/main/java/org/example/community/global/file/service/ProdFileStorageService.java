@@ -1,5 +1,6 @@
 package org.example.community.global.file.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.dto.FileStoreResult;
@@ -20,6 +21,7 @@ import java.util.UUID;
  * 현재는 EC2 내부 디렉토리에 파일을 저장
  * 나중에 S3를 사용하게 되면 이 클래스 내부 구현만 S3 업로드 방식으로 변경하면 된다.
  */
+@Slf4j
 @Service
 @Profile("prod")
 public class ProdFileStorageService implements FileStorageService {
@@ -102,4 +104,49 @@ public class ProdFileStorageService implements FileStorageService {
         // 마지막 .부터 끝까지 잘라냄
         return originalFilename.substring(originalFilename.lastIndexOf("."));
     }
+    @Override
+    public void delete(String imageUrl) {
+        // 삭제할 이미지 URL이 없으면 삭제할 대상이 없으므로 바로 종료
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+
+        // 운영 DB에 저장된 imageUrl은 /uploads/posts/파일명 형태여야함
+        if (!imageUrl.startsWith(baseUrl + "/")) {
+            log.warn("삭제할 수 없는 이미지 URL 형식입니다. imageUrl={}", imageUrl);
+            return;
+        }
+
+        try {
+            // 실제 업로드 파일이 저장되는 기본 폴더 경로
+            // /home/ubuntu/community/uploads
+            Path basePath = Paths.get(baseDir)
+                    .toAbsolutePath()
+                    .normalize();
+
+            // imageUrl에서 URL prefix인 /uploads 부분 제거
+            // 예: /uploads/posts/test.png -> /posts/test.png
+            String relativePath = imageUrl.substring(baseUrl.length());
+
+            // basePath와 상대 경로를 합쳐 실제 삭제할 파일 경로 생성
+            // /home/ubuntu/community/uploads/posts/test.png
+            Path filePath = basePath.resolve(relativePath.substring(1))
+                    .normalize();
+
+            // ../ 같은 경로 조작으로 uploads 폴더 밖의 파일 삭제를 막는다
+            if (!filePath.startsWith(basePath)) {
+                log.warn("업로드 경로 밖의 파일 삭제 시도가 감지되었습니다. imageUrl={}", imageUrl);
+                return;
+            }
+
+            // 실제 파일 하나만 삭제한다
+            Files.deleteIfExists(filePath);
+
+        } catch (IOException e) {
+            // 파일 삭제 실패 때문에 전체 스케줄러를 터뜨리지 않도록 로그만 남긴다
+            log.warn("이미지 파일 삭제에 실패했습니다. imageUrl={}", imageUrl, e);
+        }
+    }
+
+
 }

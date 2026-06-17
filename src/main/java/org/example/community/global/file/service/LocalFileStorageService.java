@@ -1,5 +1,6 @@
 package org.example.community.global.file.service;
 
+import lombok.extern.slf4j.Slf4j;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.dto.FileStoreResult;
@@ -17,6 +18,7 @@ import java.util.UUID;
 /**
  * 나중에 배포환경에서를 위해 인터페이스를 만들고 local이라고 명시하였음
  */
+@Slf4j
 @Service
 @Profile("local")
 public class LocalFileStorageService implements FileStorageService {
@@ -84,5 +86,44 @@ public class LocalFileStorageService implements FileStorageService {
         }
         // . 부터 끝까지 잘라냄(lastIndexOF 이기 때문에 마지막 점을 기준으로)
         return originalFilename.substring(originalFilename.lastIndexOf("."));
+    }
+
+    @Override
+    public void delete(String imageUrl) {
+        if (imageUrl == null || imageUrl.isBlank()) {
+            return;
+        }
+
+        if (!imageUrl.startsWith(baseUrl + "/")) {
+            log.warn("삭제할 수 없는 이미지 URL 형식입니다. imageUrl={}", imageUrl);
+            return;
+        }
+
+        try {
+            // uploads폴더까지의 경로를 절대 경로로 만드는 것
+            // /Users/max/Desktop/kakao-personal_project/uploads 이런식
+            Path basePath = Paths.get(baseDir)
+                    .toAbsolutePath()
+                    .normalize();
+
+            // 여기서 imgaeUrl에서 /uploads부분 제거
+            // 만약 /uploads/posts/test.png면 -> /posts/test.png로 결과가 나옴
+            String relativePath = imageUrl.substring(baseUrl.length());
+
+            // 여기서 앞에 /를 제거하는 이유는 /가 있으면 루트 경로처럼 해석될 수 있기 때문
+            // 따라서 resolve를 해서 basePath에 붙이면 최종적으로 삭제할 실제 파일 경로가 완성됨
+            Path filePath = basePath.resolve(relativePath.substring(1))
+                    .normalize();
+
+            if (!filePath.startsWith(basePath)) {
+                log.warn("업로드 경로 밖의 파일 삭제 시도가 감지되었습니다. imageUrl={}", imageUrl);
+                return;
+            }
+
+            Files.deleteIfExists(filePath);
+
+        } catch (IOException e) {
+            log.warn("이미지 파일 삭제에 실패했습니다. imageUrl={}", imageUrl, e);
+        }
     }
 }
