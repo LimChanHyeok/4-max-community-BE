@@ -105,16 +105,16 @@ public class ProdFileStorageService implements FileStorageService {
         return originalFilename.substring(originalFilename.lastIndexOf("."));
     }
     @Override
-    public void delete(String imageUrl) {
+    public boolean delete(String imageUrl) {
         // 삭제할 이미지 URL이 없으면 삭제할 대상이 없으므로 바로 종료
         if (imageUrl == null || imageUrl.isBlank()) {
-            return;
+            return true;
         }
 
         // 운영 DB에 저장된 imageUrl은 /uploads/posts/파일명 형태여야함
         if (!imageUrl.startsWith(baseUrl + "/")) {
             log.warn("삭제할 수 없는 이미지 URL 형식입니다. imageUrl={}", imageUrl);
-            return;
+            return false;
         }
 
         try {
@@ -136,15 +136,18 @@ public class ProdFileStorageService implements FileStorageService {
             // ../ 같은 경로 조작으로 uploads 폴더 밖의 파일 삭제를 막는다
             if (!filePath.startsWith(basePath)) {
                 log.warn("업로드 경로 밖의 파일 삭제 시도가 감지되었습니다. imageUrl={}", imageUrl);
-                return;
+                return false;
             }
 
             // 실제 파일 하나만 삭제한다
             Files.deleteIfExists(filePath);
 
+            return true;
+
         } catch (IOException e) {
             // 파일 삭제 실패 때문에 전체 스케줄러를 터뜨리지 않도록 로그만 남긴다
             log.warn("이미지 파일 삭제에 실패했습니다. imageUrl={}", imageUrl, e);
+            return false;
         }
     }
 

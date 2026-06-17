@@ -10,6 +10,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.List;
 
 @Slf4j
@@ -37,21 +38,29 @@ public class OrphanImageCleanupService {
             return;
         }
 
-        // 실제 업로드 폴더에 있는 파일 삭제능
-        // 파일은 각각 하나씩 삭제해야함
+        // 실제 파일 삭제에 성공한 이미지 id만 모은다
+        // 파일 삭제에 실패한 이미지는 DB row를 남겨서 다음 스케줄러에서 재시도할 수 있게 한다
+        List<Long> deletedFileImageIds = new ArrayList<>();
+
         for (Image image : orphanImages) {
-            fileStorageService.delete(image.getImageUrl());
+            boolean deleted = fileStorageService.delete(image.getImageUrl());
+
+            if (deleted) {
+                deletedFileImageIds.add(image.getId());
+            }
         }
 
-        // DB에서 삭제할 images.id 목록 추출
-        List<Long> imageIds = orphanImages.stream()
-                .map(Image::getId)
-                .toList();
+        // 실제 파일 삭제에 성공한 이미지가 없으면 DB row도 삭제하지 않는다
+        if (deletedFileImageIds.isEmpty()) {
+            log.warn("고아 이미지 파일 삭제 성공 건이 없어 DB row 삭제를 건너뜁니다. targetCount={}",
+                    orphanImages.size());
+            return;
+        }
 
-        // images 테이블 row를 한 번에 삭제
-        int deletedCount = imageRepository.deleteAllByIdInBulk(imageIds);
+        // 파일 삭제에 성공한 이미지의 DB row만 한 번에 삭제
+        int deletedCount = imageRepository.deleteAllByIdInBulk(deletedFileImageIds);
 
-        log.info("고아 이미지 정리 완료. fileCount={}, deletedRowCount={}",
-                orphanImages.size(), deletedCount);
+        log.info("고아 이미지 정리 완료. targetCount={}, deletedFileCount={}, deletedRowCount={}",
+                orphanImages.size(), deletedFileImageIds.size(), deletedCount);
     }
 }

@@ -89,14 +89,14 @@ public class LocalFileStorageService implements FileStorageService {
     }
 
     @Override
-    public void delete(String imageUrl) {
+    public boolean delete(String imageUrl) {
         if (imageUrl == null || imageUrl.isBlank()) {
-            return;
+            return true;
         }
 
         if (!imageUrl.startsWith(baseUrl + "/")) {
             log.warn("삭제할 수 없는 이미지 URL 형식입니다. imageUrl={}", imageUrl);
-            return;
+            return false;
         }
 
         try {
@@ -117,13 +117,16 @@ public class LocalFileStorageService implements FileStorageService {
 
             if (!filePath.startsWith(basePath)) {
                 log.warn("업로드 경로 밖의 파일 삭제 시도가 감지되었습니다. imageUrl={}", imageUrl);
-                return;
+                return false;
             }
 
             Files.deleteIfExists(filePath);
 
+            return true;
+
         } catch (IOException e) {
             log.warn("이미지 파일 삭제에 실패했습니다. imageUrl={}", imageUrl, e);
+            return false;
         }
     }
 }

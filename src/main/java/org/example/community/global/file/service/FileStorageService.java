@@ -7,5 +7,5 @@ public interface FileStorageService {
 
     FileStoreResult store(MultipartFile file, String directory);
 
-    void delete(String imageUrl);
+    boolean delete(String imageUrl);
 }
