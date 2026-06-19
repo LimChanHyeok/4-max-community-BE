@@ -50,17 +50,16 @@ public class PostLikeService {
 
         postLikeRepository.save(postLike);
 
-        /*
-         * post는 현재 트랜잭션 안에서 조회된 영속 상태 엔티티이므로
-         * increaseLikeCount()로 값만 변경해도
-         * 트랜잭션 종료 시 JPA 변경 감지로 like_count UPDATE SQL이 실행
+        /**
+         * 기존 엔티티값을 변경하는 것이 아닌 DB에서 현재 like_count 값을 기준으로 원자적으로 +1
          */
-        post.increaseLikeCount();
+        postRepository.increaseLikeCount(postId);
 
+        Long likeCount = postRepository.findLikeCountById(postId);
         return new PostLikeResponse(
-                post.getId(),
+                postId,
                 true,
-                post.getLikeCount()
+                likeCount
         );
     }
 
@@ -76,17 +75,16 @@ public class PostLikeService {
 
         postLikeRepository.delete(postLike);
 
-        /*
-         * post는 현재 트랜잭션 안에서 조회된 영속 상태 엔티티이므로
-         * decreaseLikeCount()로 값만 변경하면
-         * 트랜잭션 종료 시 JPA 변경 감지로 like_count UPDATE SQL이 실행된다.
-         */
-        post.decreaseLikeCount();
+
+        postRepository.decreaseLikeCount(postId);
+
+        //최신 좋아요수를 반영하기 위해
+        Long likeCount = postRepository.findLikeCountById(postId);
 
         return new PostLikeResponse(
-                post.getId(),
+                postId,
                 false,
-                post.getLikeCount()
+                likeCount
         );
     }
 }

@@ -86,46 +86,4 @@ public class Post {
         this.title = title;
         this.content = content;
     }
-
-
-    // 밑에 메소드들은 Service에서 해도 되지만 그렇게 된다면 Setter를 써야한다는 점과
-    // 감소 시키는 경우 감소할 때 0밑으로 내려가지 않게 하는걸 Service에 추가적으로 작성해주어야해서 엔티티에 정의함
-    /**
-     * 게시글 조회수를 1증가시킴
-     */
-    public void increaseViewCount() {
-        this.viewCount++;
-    }
-
-    /**
-     * 게시글 좋아요를 1증가시킴
-     */
-    public void increaseLikeCount() {
-        this.likeCount++;
-    }
-
-    /**
-     * 게시글 좋아요 1감소시킴
-     */
-    public void decreaseLikeCount() {
-        if (this.likeCount > 0) {
-            this.likeCount--;
-        }
-    }
-
-    /**
-     * 댓글 개수 1증가시킴
-     */
-    public void increaseCommentCount() {
-        this.commentCount++;
-    }
-
-    /**
-     * 댓글 개수 1 감소시킴
-     */
-    public void decreaseCommentCount() {
-        if (this.commentCount > 0) {
-            this.commentCount--;
-        }
-    }
 }

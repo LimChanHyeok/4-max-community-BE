@@ -12,6 +12,7 @@ import org.example.community.post.entity.Post;
 import org.example.community.post.dto.request.PostCreateRequest;
 import org.example.community.post.dto.response.*;
 import org.example.community.post.repository.PostRepository;
+import org.example.community.post.service.viewcount.ViewCountBuffer;
 import org.example.community.user.entity.User;
 import org.example.community.user.repository.UserRepository;
 import org.springframework.stereotype.Service;
@@ -44,6 +45,7 @@ public class PostService {
     private final PostRepository postRepository;
     private final UserRepository userRepository;
     private final ImageRepository imageRepository;
+    private final ViewCountBuffer viewCountBuffer;
     /**
      * ObjectMapper는 java 객체와 JSON 문자열을 변환하는 도구
      * import com.fasterxml.jackson.databind.ObjectMapper;
@@ -252,29 +254,31 @@ public class PostService {
 
     }
 
-    @Transactional
+    // 조회만 담당하게 되면서 readOnly = true로 변경
+    @Transactional(readOnly = true)
     public PostDetailResponse getPostDetail(Long postId, Long loginUserId) {
 
         /**
-         * 게시글 상세 조회 전에 게시글이 존재하는지 확인
-         */
-        Post post = postRepository.findById(postId)
-                .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
-
-        /**
-         * 게시글 상세 조회 시 조회수를 1 증가시킨다.
-         */
-        post.increaseViewCount();
-
-        /**
-         * 상세 조회 응답은 QueryDSL Custom Repository에서 DTO로 조회한다.
+         * 게시글 상세 응답은 QueryDSL Custom Repository에서 DTO로 조회한다.
          *
          * loginUserId를 함께 넘기는 이유는
          * 현재 로그인 사용자가 이 게시글에 좋아요를 눌렀는지 여부를
          * 응답에 포함하기 위해서다.
+         *
+         * 게시글이 존재하지 않으면 상세 응답을 만들 수 없으므로
+         * POST_NOT_FOUND 예외를 발생시킨다.
          */
-        return postRepository.findPostDetailById(postId, loginUserId)
+        PostDetailResponse response = postRepository.findPostDetailById(postId, loginUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
+
+        /**
+         * 게시글 상세 조회가 성공한 경우에만 조회수를 증가시킨다.
+         *
+         * 조회수는 DB에 즉시 UPDATE하지 않고 인메모리 버퍼에 누적한다.
+         * 이후 스케줄러가 버퍼에 쌓인 조회수를 일정 주기로 DB에 일괄 반영한다.
+         */
+        viewCountBuffer.increase(postId);
+        return response;
     }
 
     // 게시글 수정할 때 새 이미지가 들어오면 기존 이미지 연결을 끊고 새 이미지를 연결함

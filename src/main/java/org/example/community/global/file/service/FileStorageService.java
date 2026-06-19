@@ -6,4 +6,6 @@ import org.springframework.web.multipart.MultipartFile;
 public interface FileStorageService {
 
     FileStoreResult store(MultipartFile file, String directory);
+
+    boolean delete(String imageUrl);
 }

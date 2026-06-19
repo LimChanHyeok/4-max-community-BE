@@ -63,12 +63,11 @@ public class CommentService {
         Comment savedComment = commentRepository.save(comment);
 
         /**
-         * 이 부분에서 게시그르이 댓글 수를 증가시킨다.
-         * 현재 트랜잭션 안에서 post도 영속상태이기 때문에
-         * increaseCommentCount로 값을 변경하면
-         * 변경 감지로 UPDATE SQL 실행
+         * 기존처럼 post.increaseCommentCount()로 엔티티 값을 변경하면
+         * 동시에 여러 댓글 등록 요청이 들어왔을 때 Lost Update가 발생할 수 있다.
+         * DB에서 현재 comment_count 값을 기준으로 원자적으로 +1 처리
          */
-        post.increaseCommentCount();
+        postRepository.increaseCommentCount(postId);
 
         return commentRepository.findCreateResponseById(
                         savedComment.getId(),
@@ -258,7 +257,7 @@ public class CommentService {
 
         commentRepository.delete(comment);
 
-        post.decreaseCommentCount();
+        postRepository.decreaseCommentCount(postId);
     }
 
 
