@@ -1,9 +1,11 @@
 package org.example.community.global.file.service;
 
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.example.community.global.exception.CustomException;
 import org.example.community.global.exception.ErrorCode;
 import org.example.community.global.file.dto.FileStoreResult;
+import org.example.community.global.file.validator.ImageFileValidator;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Profile;
 import org.springframework.stereotype.Service;
@@ -13,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -22,9 +25,15 @@ import java.util.UUID;
  * 나중에 S3를 사용하게 되면 이 클래스 내부 구현만 S3 업로드 방식으로 변경하면 된다.
  */
 @Slf4j
+@RequiredArgsConstructor
 @Service
 @Profile("prod")
 public class ProdFileStorageService implements FileStorageService {
+
+    private final ImageFileValidator imageFileValidator;
+
+    private static final Set<String> ALLOWED_DIRECTORIES = Set.of("posts", "profiles");
+
 
     @Value("${app.upload.base-dir}")
     private String baseDir;
@@ -34,9 +43,8 @@ public class ProdFileStorageService implements FileStorageService {
 
     @Override
     public FileStoreResult store(MultipartFile file, String directory) {
-        if (file == null || file.isEmpty()) {
-            return null;
-        }
+
+        imageFileValidator.validate(file);
 
         try {
             /**
@@ -44,10 +52,9 @@ public class ProdFileStorageService implements FileStorageService {
              * baseDir = /home/ubuntu/community/uploads
              * directory = posts
              * 결과 = /home/ubuntu/community/uploads/posts
+             * resolveUplodaPath에서 검증 후 uploadPath 생성
              */
-            Path uploadPath = Paths.get(baseDir, directory)
-                    .toAbsolutePath()
-                    .normalize();
+            Path uploadPath = resolveUploadPath(directory);
 
             /**
              * 폴더가 없으면 생성한다.
@@ -92,6 +99,31 @@ public class ProdFileStorageService implements FileStorageService {
         } catch (IOException e) {
             throw new CustomException(ErrorCode.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    private Path resolveUploadPath(String directory) {
+        if (directory == null || directory.isBlank()) {
+            throw new CustomException(ErrorCode.INVALID_IMAGE_DIRECTORY);
+        }
+
+        String uploadDirectory = directory.trim();
+
+        if (!ALLOWED_DIRECTORIES.contains(uploadDirectory)) {
+            throw new CustomException(ErrorCode.INVALID_IMAGE_DIRECTORY);
+        }
+
+        Path basePath = Paths.get(baseDir)
+                .toAbsolutePath()
+                .normalize();
+
+        Path uploadPath = basePath.resolve(uploadDirectory)
+                .normalize();
+
+        if (!uploadPath.startsWith(basePath)) {
+            throw new CustomException(ErrorCode.INVALID_IMAGE_DIRECTORY);
+        }
+
+        return uploadPath;
     }
 
     // 확장자를 잘라내는 함수
