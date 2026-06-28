@@ -20,27 +20,7 @@ import java.util.List;
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-
     private final LoginUserArgumentResolver loginUserArgumentResolver;
-
-    @Value("${app.upload.base-dir}")
-    private String uploadBaseDir;
-
-    /**
-     * 정적 리소스(이미지 파일) 경로를 추가 설정하는 메소드
-     */
-    @Override
-    public void addResourceHandlers(ResourceHandlerRegistry registry) {
-        /**
-         * Path.get(프로젝트 루트에 uploads 경로를 가리킴)
-         * toAbsolutepath()-> 상대경로를 절대 경로로 바꾸는 것
-         * toUri() -> file:/Users/max/project/community/uploads/ 이런식으로 바꿈
-         */
-        String uploadPath = Paths.get(uploadBaseDir).toAbsolutePath().toUri().toString();
-
-        registry.addResourceHandler("/uploads/**")
-                .addResourceLocations(uploadPath);
-    }
 
     /**
      * 직접 만든 HandlerMethodArgumentResolver를 Spring MVC에 등록
