@@ -1,0 +1,14 @@
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: community-backend:local
+    container_name: community-backend-local
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.local
+    volumes:
+      - ./uploads:/app/uploads
+    restart: unless-stopped
