@@ -8,24 +8,53 @@ on:
 permissions:
   contents: read
 
+concurrency: # 같은 feature 브랜치에서 이전 CI가 돌고있는데 새 push가 오면 이전 걸 취소
+  group: feature-push-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
     name: Gradle Test
     runs-on: ubuntu-latest
+    timeout-minutes: 15 # 15분 넘게 걸리면 실패 처리, MySQL 컨테이너 실행 시간이 있어서 10분보다 조금 여유 있게 설정
 
-    steps:
+    services:
+      mysql:
+        image: mysql:8.4 # GitHub Actions 안에서 테스트용 MySQL 컨테이너 실행
+        env:
+          MYSQL_DATABASE: community_test # 테스트용 DB 이름
+          MYSQL_USER: test # 테스트용 DB 사용자
+          MYSQL_PASSWORD: test # 테스트용 DB 비밀번호
+          MYSQL_ROOT_PASSWORD: root # MySQL root 비밀번호, health check에서 사용
+        ports:
+          - 3306:3306 # runner에서 127.0.0.1:3306으로 MySQL에 접근할 수 있게 연결
+        options: >- # MySQL이 준비될 때까지 기다리기 위한 health check 설정
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -proot"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    steps: # job안에서 실행할 단계들
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # 프로젝트 코드 가져오기
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4 # runner에 자바21 설치
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+          cache: gradle # 이전 실행에서 받은 의존성을 재사용
 
       - name: Grant execute permission for Gradle wrapper
-        run: chmod +x ./gradlew
+        run: chmod +x ./gradlew # gradlew 실행 권한 부여
 
       - name: Run tests
-        run: ./gradlew test #test
+        run: ./gradlew test --no-daemon # main,test 코드 컴파일, 테스트 실행
+        env:
+          SPRING_PROFILES_ACTIVE: test # CI에서는 test profile로 Spring Boot 실행
+          DB_HOST: 127.0.0.1 # GitHub Actions runner에서 MySQL service에 접근할 주소
+          DB_PORT: 3306 # MySQL service 포트
+          DB_NAME: community_test # 위에서 만든 테스트용 DB 이름
+          DB_USERNAME: test # 위에서 만든 테스트용 DB 사용자
+          DB_PASSWORD: test # 위에서 만든 테스트용 DB 비밀번호
+          JWT_SECRET: test-jwt-secret-key-test-jwt-secret-key-test-jwt-secret-key # 테스트용 가짜 JWT Secret
