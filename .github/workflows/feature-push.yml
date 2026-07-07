@@ -58,3 +58,12 @@ jobs:
           DB_USERNAME: test
           DB_PASSWORD: test
           JWT_SECRET: test-jwt-secret-key-test-jwt-secret-key-test-jwt-secret-key
+
+      - name: Print test failure report
+        if: failure()
+        run: |
+          echo "==== Test result XML files ===="
+          find build/test-results/test -name "*.xml" -print
+
+          echo "==== Test failure details ===="
+          find build/test-results/test -name "*.xml" -exec cat {} \;
