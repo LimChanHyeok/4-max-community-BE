@@ -49,12 +49,12 @@ jobs:
         run: chmod +x ./gradlew # gradlew 실행 권한 부여
 
       - name: Run tests
-        run: ./gradlew test --no-daemon # main,test 코드 컴파일, 테스트 실행
+        run: ./gradlew test --no-daemon --stacktrace
         env:
-          SPRING_PROFILES_ACTIVE: test # CI에서는 test profile로 Spring Boot 실행
-          DB_HOST: 127.0.0.1 # GitHub Actions runner에서 MySQL service에 접근할 주소
-          DB_PORT: 3306 # MySQL service 포트
-          DB_NAME: community_test # 위에서 만든 테스트용 DB 이름
-          DB_USERNAME: test # 위에서 만든 테스트용 DB 사용자
-          DB_PASSWORD: test # 위에서 만든 테스트용 DB 비밀번호
-          JWT_SECRET: test-jwt-secret-key-test-jwt-secret-key-test-jwt-secret-key # 테스트용 가짜 JWT Secret
+          SPRING_PROFILES_ACTIVE: test
+          DB_HOST: 127.0.0.1
+          DB_PORT: 3306
+          DB_NAME: community_test
+          DB_USERNAME: test
+          DB_PASSWORD: test
+          JWT_SECRET: test-jwt-secret-key-test-jwt-secret-key-test-jwt-secret-key
