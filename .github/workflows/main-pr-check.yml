@@ -57,14 +57,8 @@ jobs:
       - name: Grant execute permission for Gradle
         run: chmod +x ./gradlew
 
-      - name: Run unit tests
-        run: ./gradlew test --no-daemon
-
-      - name: Run integration tests
-        run: ./gradlew integrationTest --no-daemon
-
-      - name: Build bootJar
-        run: ./gradlew bootJar --no-daemon
+      - name: Build application
+        run: ./gradlew clean build --no-daemon
 
       - name: Prepare app.jar for Docker build
         run: |
