@@ -115,7 +115,6 @@ jobs:
     name: Deploy To Backend EC2
     runs-on: ubuntu-latest
     needs: build-and-push # build-and-push가 성공해야 deploy 실행
-    environment: production
 
     env: # 이전 job에서 output한 걸 받음
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
@@ -127,75 +126,77 @@ jobs:
           aws-region: ${{ env.AWS_REGION }}
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
 
-      - name: Deploy backend through SSM # github actions가 Backend EC2의 SSM에게 명령을 보내는 것
+      - name: Deploy backend through SSM # GitHub Actions가 AWS SSM을 통해 Backend EC2에 명령을 보내는 단계
         run: |
-               PARAMETERS=$(jq -n --arg tag "$IMAGE_TAG" '{
-               commands: [
-                "set -e",
-                "cd /home/ubuntu/community-docker",
-               
-                "PREVIOUS_TAG=$(grep \"^BACKEND_TAG=\" .env | cut -d= -f2)",
-                "if [ -z \"$PREVIOUS_TAG\" ]; then echo \"Previous BACKEND_TAG not found\"; exit 1; fi",
-               
-                "echo \"Previous tag: $PREVIOUS_TAG\"",
-                ("echo \"Deploy tag: " + $tag + "\""),
-               
-                ("bash ./deploy-backend.sh \"" + $tag + "\""),
-               
-                "echo \"Waiting for application health check...\"",
-               
-                "for i in $(seq 1 12); do if curl -fsS http://localhost:8080/health > /dev/null; then echo \"Health check passed\"; exit 0; fi; echo \"Health check failed. Retry ${i}/12\"; sleep 5; done",
-               
-                "echo \"Health check failed. Rolling back to $PREVIOUS_TAG\"",
-                "bash ./deploy-backend.sh \"$PREVIOUS_TAG\"",
-               
-                "echo \"Rollback command executed\"",
-                "exit 1"
-               ]
-               }')
-          # SSM에게 명령을 보내는 부분, 위에서 정의한 PARAMETERS 안에 있는 commands를 실행해줘라
-               COMMAND_ID=$(aws ssm send-command \
-               --region "$AWS_REGION" \
-               --instance-ids "${{ secrets.BACKEND_INSTANCE_ID }}" \
-               --document-name "AWS-RunShellScript" \
-               --comment "Deploy community backend ${IMAGE_TAG}" \
-               --parameters "$PARAMETERS" \
-               --query "Command.CommandId" \
-               --output text)
-               
-               echo "SSM command id: $COMMAND_ID"
-               
-               aws ssm wait command-executed \
-               --region "$AWS_REGION" \
-               --command-id "$COMMAND_ID" \
-               --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}"
-               
-               STATUS=$(aws ssm get-command-invocation \
-               --region "$AWS_REGION" \
-               --command-id "$COMMAND_ID" \
-               --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-               --query "Status" \
-               --output text)
-               
-               echo "SSM status: $STATUS"
-               
-               echo "===== SSM STDOUT ====="
-               aws ssm get-command-invocation \
-               --region "$AWS_REGION" \
-               --command-id "$COMMAND_ID" \
-               --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-               --query "StandardOutputContent" \
-               --output text
-               
-               echo "===== SSM STDERR ====="
-               aws ssm get-command-invocation \
-               --region "$AWS_REGION" \
-               --command-id "$COMMAND_ID" \
-               --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-               --query "StandardErrorContent" \
-               --output text
-               
-               if [ "$STATUS" != "Success" ]; then
-               echo "Deployment failed"
-               exit 1
-               fi
+          PARAMETERS=$(jq -n --arg tag "$IMAGE_TAG" '{
+            commands: [
+              "set -e",
+              "cd /home/ubuntu/community-docker",
+
+              "PREVIOUS_TAG=$(grep \"^BACKEND_TAG=\" .env | cut -d= -f2)",
+              "if [ -z \"$PREVIOUS_TAG\" ]; then echo \"Previous BACKEND_TAG not found\"; exit 1; fi",
+
+              "echo \"Previous tag: $PREVIOUS_TAG\"",
+              ("echo \"Deploy tag: " + $tag + "\""),
+
+              ("bash ./deploy-backend.sh \"" + $tag + "\""),
+
+              "echo \"Waiting for application health check...\"",
+
+              "for i in $(seq 1 12); do if curl -fsS http://localhost:8080/health > /dev/null; then echo \"Health check passed\"; exit 0; fi; echo \"Health check failed. Retry ${i}/12\"; sleep 5; done",
+
+              "echo \"Health check failed. Rolling back to $PREVIOUS_TAG\"",
+              "bash ./deploy-backend.sh \"$PREVIOUS_TAG\"",
+
+              "echo \"Rollback command executed\"",
+              "exit 1"
+            ]
+          }')
+
+          # SSM에게 명령을 보내는 부분
+          # 위에서 정의한 PARAMETERS 안의 commands를 Backend EC2에서 실행하라고 요청한다.
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy community backend ${IMAGE_TAG}" \
+            --parameters "$PARAMETERS" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command id: $COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}"
+
+          STATUS=$(aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
+
+          echo "SSM status: $STATUS"
+
+          echo "===== SSM STDOUT ====="
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "StandardOutputContent" \
+            --output text
+
+          echo "===== SSM STDERR ====="
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "StandardErrorContent" \
+            --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed"
+            exit 1
+          fi
