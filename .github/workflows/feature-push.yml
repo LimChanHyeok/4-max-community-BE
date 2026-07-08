@@ -8,24 +8,29 @@ on:
 permissions:
   contents: read
 
+concurrency: # 같은 feature 브랜치에서 이전 CI가 돌고있는데 새 push가 오면 이전 걸 취소
+  group: feature-push-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   test:
-    name: Gradle Test
+    name: Compile And Unit Test
     runs-on: ubuntu-latest
+    timeout-minutes: 10 # 10분 넘게 걸리면 실패 처리
 
-    steps:
+    steps: # job안에서 실행할 단계들
       - name: Checkout source code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4 # 프로젝트 코드 가져오기
 
       - name: Set up JDK 21
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@v4 # runner에 자바21 설치
         with:
           distribution: temurin
           java-version: '21'
-          cache: gradle
+          cache: gradle # 이전 실행에서 받은 의존성을 재사용
 
       - name: Grant execute permission for Gradle wrapper
-        run: chmod +x ./gradlew
+        run: chmod +x ./gradlew # gradlew 실행 권한 부여
 
-      - name: Run tests
-        run: ./gradlew test
+      - name: Run unit tests
+        run: ./gradlew test --no-daemon # integration 태그를 제외하고 컴파일 및 단위 테스트 실행.

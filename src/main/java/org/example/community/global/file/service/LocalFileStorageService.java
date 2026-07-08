@@ -24,7 +24,7 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-@Profile("local")
+@Profile({"local","test"})
 public class LocalFileStorageService implements FileStorageService {
 
     private final ImageFileValidator imageFileValidator;
