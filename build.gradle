@@ -77,3 +77,7 @@ tasks.register('integrationTest', Test) {
 
     shouldRunAfter test
 }
+
+tasks.named('check') {
+    dependsOn tasks.named('integrationTest')
+}

@@ -1,0 +1,202 @@
+name: Main Deploy
+
+on:
+  push:
+    branches:
+      - main
+
+permissions: # github actions가 github에서 무엇을 할 수 있는지
+  contents: read
+  id-token: write # github actions가 OIDC toekn을 발급 받을 수 있게 허용하는것
+
+env:
+  AWS_REGION: ap-northeast-2
+  ECR_REGISTRY: 929368845727.dkr.ecr.ap-northeast-2.amazonaws.com
+  ECR_REPOSITORY: community-backend
+
+jobs:
+  build-and-push: # 1번 job
+    name: Build And Push Image
+    runs-on: ubuntu-latest
+
+    outputs: # 다음 Job에게 넘길 값
+      image-tag: ${{ steps.meta.outputs.image_tag }}
+
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_DATABASE: community_test
+          MYSQL_USER: testuser
+          MYSQL_PASSWORD: testpass
+          MYSQL_ROOT_PASSWORD: rootpass
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=10
+
+    env:
+      SPRING_PROFILES_ACTIVE: test
+
+      DB_HOST: 127.0.0.1
+      DB_PORT: 3306
+      DB_NAME: community_test
+      DB_USERNAME: testuser
+      DB_PASSWORD: testpass
+
+      JWT_SECRET: test-secret-key-test-secret-key-test-secret-key-test-secret-key
+      JWT_ACCESS_TOKEN_EXPIRATION: 1800000
+      JWT_REFRESH_TOKEN_EXPIRATION: 1209600000
+
+    steps: # 실제 실행 순서
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Grant execute permission for Gradle
+        run: chmod +x ./gradlew
+
+      - name: Build application
+        run: ./gradlew clean build --no-daemon
+
+      - name: Prepare app.jar for Docker build
+        run: |
+          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
+
+          if [ -z "$JAR_FILE" ]; then
+            echo "No executable jar file found in build/libs"
+            exit 1
+          fi
+
+          cp "$JAR_FILE" build/libs/app.jar
+          ls -lh build/libs/app.jar
+
+      - name: Configure AWS credentials #OIDC 토큰으로 IAM Role을 assume하여 임시 권한 획득
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+
+      - name: Login to ECR
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Generate image tag
+        id: meta
+        run: |
+          SHORT_SHA="${GITHUB_SHA::7}"
+          IMAGE_TAG="main-${SHORT_SHA}"
+
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT" # ouput으로 태그 값 저장 -> 다음 job에서 받기 위해
+
+          echo "IMAGE_TAG=${IMAGE_TAG}"
+          echo "IMAGE_URI=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
+
+      - name: Build Docker image
+        run: |
+          docker build \
+            --platform linux/amd64 \
+            -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }} \
+            .
+
+      - name: Push Docker image to ECR
+        run: |
+          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }}
+
+  deploy:
+    name: Deploy To Backend EC2
+    runs-on: ubuntu-latest
+    needs: build-and-push # build-and-push가 성공해야 deploy 실행
+
+    env: # 이전 job에서 output한 걸 받음
+      IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+
+    steps:
+      - name: Configure AWS credentials #OIDC 토큰으로 IAM Role을 assume하여 임시 권한 획득
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+
+      - name: Deploy backend through SSM # GitHub Actions가 AWS SSM을 통해 Backend EC2에 명령을 보내는 단계
+        run: |
+          PARAMETERS=$(jq -n --arg tag "$IMAGE_TAG" '{
+            commands: [
+              "set -e",
+              "cd /home/ubuntu/community-docker",
+
+              "PREVIOUS_TAG=$(grep \"^BACKEND_TAG=\" .env | cut -d= -f2)",
+              "if [ -z \"$PREVIOUS_TAG\" ]; then echo \"Previous BACKEND_TAG not found\"; exit 1; fi",
+
+              "echo \"Previous tag: $PREVIOUS_TAG\"",
+              ("echo \"Deploy tag: " + $tag + "\""),
+
+              ("bash ./deploy-backend.sh \"" + $tag + "\""),
+
+              "echo \"Waiting for application health check...\"",
+
+              "for i in $(seq 1 12); do if curl -fsS http://localhost:8080/health > /dev/null; then echo \"Health check passed\"; exit 0; fi; echo \"Health check failed. Retry ${i}/12\"; sleep 5; done",
+
+              "echo \"Health check failed. Rolling back to $PREVIOUS_TAG\"",
+              "bash ./deploy-backend.sh \"$PREVIOUS_TAG\"",
+
+              "echo \"Rollback command executed\"",
+              "exit 1"
+            ]
+          }')
+
+          # SSM에게 명령을 보내는 부분
+          # 위에서 정의한 PARAMETERS 안의 commands를 Backend EC2에서 실행하라고 요청한다.
+          COMMAND_ID=$(aws ssm send-command \
+            --region "$AWS_REGION" \
+            --instance-ids "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --document-name "AWS-RunShellScript" \
+            --comment "Deploy community backend ${IMAGE_TAG}" \
+            --parameters "$PARAMETERS" \
+            --query "Command.CommandId" \
+            --output text)
+
+          echo "SSM command id: $COMMAND_ID"
+
+          aws ssm wait command-executed \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}"
+
+          STATUS=$(aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "Status" \
+            --output text)
+
+          echo "SSM status: $STATUS"
+
+          echo "===== SSM STDOUT ====="
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "StandardOutputContent" \
+            --output text
+
+          echo "===== SSM STDERR ====="
+          aws ssm get-command-invocation \
+            --region "$AWS_REGION" \
+            --command-id "$COMMAND_ID" \
+            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
+            --query "StandardErrorContent" \
+            --output text
+
+          if [ "$STATUS" != "Success" ]; then
+            echo "Deployment failed"
+            exit 1
+          fi
