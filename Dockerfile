@@ -1,26 +1,4 @@
 # syntax=docker/dockerfile:1
-
-FROM eclipse-temurin:21-jdk AS builder
-
-WORKDIR /app
-
-COPY gradlew .
-COPY gradle gradle
-COPY settings.gradle .
-COPY build.gradle .
-
-RUN chmod +x gradlew
-
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew dependencies --no-daemon
-
-COPY src src
-
-RUN --mount=type=cache,target=/root/.gradle \
-    ./gradlew bootJar -x test --no-daemon && \
-    JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1) && \
-    cp "$JAR_FILE" app.jar
-
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
