@@ -139,7 +139,7 @@ jobs:
               "echo \"Previous tag: $PREVIOUS_TAG\"",
               ("echo \"Deploy tag: " + $tag + "\""),
 
-              ("bash ./deploy-backend.sh \"" + $tag + "\""),
+              ("if ! bash ./deploy-backend.sh \"" + $tag + "\"; then echo \"Deploy command failed. Rolling back to $PREVIOUS_TAG\"; bash ./deploy-backend.sh \"$PREVIOUS_TAG\"; echo \"Rollback command executed after deploy failure\"; exit 1; fi"),
 
               "echo \"Waiting for application health check...\"",
 
