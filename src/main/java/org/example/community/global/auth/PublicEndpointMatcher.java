@@ -23,7 +23,8 @@ public class PublicEndpointMatcher {
             new PublicEndpoint("POST", "/users"),
             new PublicEndpoint("GET", "/users/email/check"),
             new PublicEndpoint("GET", "/users/nickname/check"),
-            new PublicEndpoint("POST", "/images/profiles")
+            new PublicEndpoint("POST", "/images/profiles"),
+            new PublicEndpoint("GET", "/health")
     );
 
     public boolean matches(HttpServletRequest request) {
