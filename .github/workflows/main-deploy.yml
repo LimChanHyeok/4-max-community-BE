@@ -130,26 +130,10 @@ jobs:
         run: |
           PARAMETERS=$(jq -n --arg tag "$IMAGE_TAG" '{
             commands: [
-              "set -e",
+              "set -Eeuo pipefail",
               "cd /home/ubuntu/community-docker",
-
-              "PREVIOUS_TAG=$(grep \"^BACKEND_TAG=\" .env | cut -d= -f2)",
-              "if [ -z \"$PREVIOUS_TAG\" ]; then echo \"Previous BACKEND_TAG not found\"; exit 1; fi",
-
-              "echo \"Previous tag: $PREVIOUS_TAG\"",
               ("echo \"Deploy tag: " + $tag + "\""),
-
-              ("if ! bash ./deploy-backend.sh \"" + $tag + "\"; then echo \"Deploy command failed. Rolling back to $PREVIOUS_TAG\"; bash ./deploy-backend.sh \"$PREVIOUS_TAG\"; echo \"Rollback command executed after deploy failure\"; exit 1; fi"),
-
-              "echo \"Waiting for application health check...\"",
-
-              "for i in $(seq 1 12); do if curl -fsS http://localhost:8080/health > /dev/null; then echo \"Health check passed\"; exit 0; fi; echo \"Health check failed. Retry ${i}/12\"; sleep 5; done",
-
-              "echo \"Health check failed. Rolling back to $PREVIOUS_TAG\"",
-              "bash ./deploy-backend.sh \"$PREVIOUS_TAG\"",
-
-              "echo \"Rollback command executed\"",
-              "exit 1"
+              ("bash ./deploy-blue-green.sh \"" + $tag + "\"")
             ]
           }')
 
