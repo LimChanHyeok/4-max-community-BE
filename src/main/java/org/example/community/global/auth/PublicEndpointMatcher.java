@@ -24,7 +24,9 @@ public class PublicEndpointMatcher {
             new PublicEndpoint("GET", "/users/email/check"),
             new PublicEndpoint("GET", "/users/nickname/check"),
             new PublicEndpoint("POST", "/images/profiles"),
-            new PublicEndpoint("GET", "/health")
+            new PublicEndpoint("GET", "/health"),
+            new PublicEndpoint("GET", "/health/live"),
+            new PublicEndpoint("GET", "/health/ready")
     );
 
     public boolean matches(HttpServletRequest request) {
