@@ -1,0 +1,16 @@
+# Controller가 관리할 Kubernetes 클러스터의 논리적 이름
+clusterName: community-k8s
+
+# 클러스터가 실행 중인 AWS 리전
+region: ap-northeast-2
+
+vpcId: vpc-07cfc620c54218828
+
+# Kubernetes 내부에서 Controller가 사용할 신원
+serviceAccount:
+  create: true
+  name: aws-load-balancer-controller
+
+# Ingress, Service, Node 등을 조회·관리할 Kubernetes 권한
+rbac:
+  create: true

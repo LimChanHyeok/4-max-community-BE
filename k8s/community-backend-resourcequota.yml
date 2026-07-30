@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: community-backend-resourcequota
+  namespace: community-prod-backend
+  labels:
+    app: community
+    tier: backend
+    env: prod
+
+spec:
+  hard:
+    requests.cpu: "1"
+    requests.memory: 2Gi
+    limits.cpu: "10"
+    limits.memory: 3200Mi
+    pods: "5"

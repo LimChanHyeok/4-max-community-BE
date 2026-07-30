@@ -5,9 +5,31 @@ on:
     branches:
       - main
 
-permissions: # github actions가 github에서 무엇을 할 수 있는지
-  contents: read
-  id-token: write # github actions가 OIDC toekn을 발급 받을 수 있게 허용하는것
+    # Backend 실행 코드가 변경됐을 때만 이미지 Build
+    # Argo CD YAML이나 values-prod.yaml Bot Commit으로는 실행하지 않음
+    # 계속 workflow가 실행될 수 있기 때문!
+    paths:
+      - "src/**"
+      - "build.gradle"
+      - "build.gradle.kts"
+      - "settings.gradle"
+      - "settings.gradle.kts"
+      - "gradle/**"
+      - "gradlew"
+      - "gradlew.bat"
+      - "Dockerfile"
+
+# 동일한 main 배포가 동시에 실행되며 values-prod.yaml을 충돌시키는 것 방지
+concurrency:
+  group: backend-main-deploy
+  cancel-in-progress: false
+
+permissions:
+  # values-prod.yaml을 Commit하고 Push하기 위한 권한
+  contents: write
+
+  # GitHub Actions가 AWS IAM Role을 OIDC로 Assume하기 위한 권한
+  id-token: write
 
 env:
   AWS_REGION: ap-northeast-2
@@ -15,11 +37,11 @@ env:
   ECR_REPOSITORY: community-backend
 
 jobs:
-  build-and-push: # 1번 job
+  build-and-push:
     name: Build And Push Image
     runs-on: ubuntu-latest
 
-    outputs: # 다음 Job에게 넘길 값
+    outputs:
       image-tag: ${{ steps.meta.outputs.image_tag }}
 
     services:
@@ -30,8 +52,10 @@ jobs:
           MYSQL_USER: testuser
           MYSQL_PASSWORD: testpass
           MYSQL_ROOT_PASSWORD: rootpass
+
         ports:
           - 3306:3306
+
         options: >-
           --health-cmd="mysqladmin ping -h 127.0.0.1 -uroot -prootpass"
           --health-interval=10s
@@ -51,7 +75,7 @@ jobs:
       JWT_ACCESS_TOKEN_EXPIRATION: 1800000
       JWT_REFRESH_TOKEN_EXPIRATION: 1209600000
 
-    steps: # 실제 실행 순서
+    steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
@@ -70,7 +94,13 @@ jobs:
 
       - name: Prepare app.jar for Docker build
         run: |
-          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
+          set -Eeuo pipefail
+
+          JAR_FILE=$(find build/libs \
+            -maxdepth 1 \
+            -name "*.jar" \
+            ! -name "*-plain.jar" \
+            | head -n 1)
 
           if [ -z "$JAR_FILE" ]; then
             echo "No executable jar file found in build/libs"
@@ -80,7 +110,7 @@ jobs:
           cp "$JAR_FILE" build/libs/app.jar
           ls -lh build/libs/app.jar
 
-      - name: Configure AWS credentials #OIDC 토큰으로 IAM Role을 assume하여 임시 권한 획득
+      - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
         with:
           aws-region: ${{ env.AWS_REGION }}
@@ -92,100 +122,113 @@ jobs:
       - name: Generate image tag
         id: meta
         run: |
+          set -Eeuo pipefail
+
           SHORT_SHA="${GITHUB_SHA::7}"
           IMAGE_TAG="main-${SHORT_SHA}"
 
-          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT" # ouput으로 태그 값 저장 -> 다음 job에서 받기 위해
+          echo "image_tag=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
 
           echo "IMAGE_TAG=${IMAGE_TAG}"
           echo "IMAGE_URI=${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}"
 
       - name: Build Docker image
         run: |
+          set -Eeuo pipefail
+
           docker build \
             --platform linux/amd64 \
-            -t ${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }} \
+            --tag "${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }}" \
             .
 
       - name: Push Docker image to ECR
         run: |
-          docker push ${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }}
+          set -Eeuo pipefail
 
-  deploy:
-    name: Deploy To Backend EC2
+          docker push \
+            "${ECR_REGISTRY}/${ECR_REPOSITORY}:${{ steps.meta.outputs.image_tag }}"
+
+  update-helm-values:
+    name: Update Helm Image Tag
     runs-on: ubuntu-latest
-    needs: build-and-push # build-and-push가 성공해야 deploy 실행
+    needs: build-and-push
 
-    env: # 이전 job에서 output한 걸 받음
+    env:
       IMAGE_TAG: ${{ needs.build-and-push.outputs.image-tag }}
+      VALUES_FILE: helm/community-backend/values-prod.yaml
+      YQ_VERSION: v4.53.3
 
     steps:
-      - name: Configure AWS credentials #OIDC 토큰으로 IAM Role을 assume하여 임시 권한 획득
-        uses: aws-actions/configure-aws-credentials@v4
+      # Job마다 Runner가 별도로 생성되므로 다시 Checkout해야 함
+      - name: Checkout repository
+        uses: actions/checkout@v4
         with:
-          aws-region: ${{ env.AWS_REGION }}
-          role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
+          ref: main
+          fetch-depth: 0
 
-      - name: Deploy backend through SSM # GitHub Actions가 AWS SSM을 통해 Backend EC2에 명령을 보내는 단계
+      - name: Install yq
         run: |
-          PARAMETERS=$(jq -n --arg tag "$IMAGE_TAG" '{
-            commands: [
-              "set -Eeuo pipefail",
-              "cd /home/ubuntu/community-docker",
-              ("echo \"Deploy tag: " + $tag + "\""),
-              ("bash ./deploy-blue-green.sh \"" + $tag + "\"")
-            ]
-          }')
+          set -Eeuo pipefail
 
-          # SSM에게 명령을 보내는 부분
-          # 위에서 정의한 PARAMETERS 안의 commands를 Backend EC2에서 실행하라고 요청한다.
-          COMMAND_ID=$(aws ssm send-command \
-            --region "$AWS_REGION" \
-            --instance-ids "${{ secrets.BACKEND_INSTANCE_ID }}" \
-            --document-name "AWS-RunShellScript" \
-            --comment "Deploy community backend ${IMAGE_TAG}" \
-            --parameters "$PARAMETERS" \
-            --query "Command.CommandId" \
-            --output text)
+          curl -fsSL \
+            "https://github.com/mikefarah/yq/releases/download/${YQ_VERSION}/yq_linux_amd64" \
+            -o /tmp/yq
 
-          echo "SSM command id: $COMMAND_ID"
+          sudo install -m 0755 /tmp/yq /usr/local/bin/yq
 
-          set +e
-          aws ssm wait command-executed \
-            --region "$AWS_REGION" \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}"
-          WAIT_EXIT_CODE=$?
-          set -e
+          yq --version
 
-          echo "SSM wait exit code: $WAIT_EXIT_CODE"
+      - name: Update Backend image tag
+        run: |
+          set -Eeuo pipefail
 
-          STATUS=$(aws ssm get-command-invocation \
-            --region "$AWS_REGION" \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-            --query "Status" \
-            --output text)
-
-          echo "SSM status: $STATUS"
-
-          echo "===== SSM STDOUT ====="
-          aws ssm get-command-invocation \
-            --region "$AWS_REGION" \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-            --query "StandardOutputContent" \
-            --output text
-
-          echo "===== SSM STDERR ====="
-          aws ssm get-command-invocation \
-            --region "$AWS_REGION" \
-            --command-id "$COMMAND_ID" \
-            --instance-id "${{ secrets.BACKEND_INSTANCE_ID }}" \
-            --query "StandardErrorContent" \
-            --output text
-
-          if [ "$STATUS" != "Success" ]; then
-            echo "Deployment failed"
+          if [ ! -f "$VALUES_FILE" ]; then
+            echo "Values file not found: $VALUES_FILE"
             exit 1
           fi
+
+          yq -i '.image.tag = strenv(IMAGE_TAG)' "$VALUES_FILE"
+
+          UPDATED_TAG=$(yq -r '.image.tag' "$VALUES_FILE")
+
+          if [ "$UPDATED_TAG" != "$IMAGE_TAG" ]; then
+            echo "Image tag update verification failed"
+            echo "Expected: $IMAGE_TAG"
+            echo "Actual:   $UPDATED_TAG"
+            exit 1
+          fi
+
+          echo "Updated image tag: $UPDATED_TAG"
+
+      - name: Validate Backend Helm Chart
+        run: |
+          set -Eeuo pipefail
+
+          helm lint helm/community-backend \
+            -f helm/community-backend/values-prod.yaml
+
+          helm template community-backend \
+            helm/community-backend \
+            --namespace community-prod-backend \
+            -f helm/community-backend/values-prod.yaml \
+            > /tmp/community-backend-rendered.yaml
+
+      - name: Commit and push Helm values
+        run: |
+          set -Eeuo pipefail
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add "$VALUES_FILE"
+
+          if git diff --cached --quiet; then
+            echo "No Helm values changes to commit"
+            exit 0
+          fi
+
+          git commit \
+            -m "chore: update backend image to ${IMAGE_TAG}"
+
+          git push origin HEAD:main

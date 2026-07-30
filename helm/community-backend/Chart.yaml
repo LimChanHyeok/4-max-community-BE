@@ -1,0 +1,10 @@
+apiVersion: v2
+
+name: community-backend
+
+description: Helm chart for the Community backend application
+
+type: application
+
+# helm chart 자체 버전
+version: 0.1.0
