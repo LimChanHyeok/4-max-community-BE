@@ -1,0 +1,23 @@
+image:
+  pullPolicy: IfNotPresent
+
+strategy:
+  maxSurge: 1
+  maxUnavailable: 1
+
+probes:
+  startup:
+    periodSeconds: 5
+    timeoutSeconds: 2
+    failureThreshold: 9
+
+  readiness:
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3
+    successThreshold: 1
+
+  liveness:
+    periodSeconds: 10
+    timeoutSeconds: 2
+    failureThreshold: 3

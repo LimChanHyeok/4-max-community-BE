@@ -1,0 +1,55 @@
+replicaCount: 3
+
+image:
+  repository: 929368845727.dkr.ecr.ap-northeast-2.amazonaws.com/community-backend
+  tag: main-56a946d
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 400Mi
+  limits:
+    cpu: "2"
+    memory: 650Mi
+
+secret:
+  existingSecret: community-backend-secret
+
+service:
+  type: NodePort
+  port: 80
+
+config:
+  SPRING_PROFILES_ACTIVE: prod
+  DB_URL: jdbc:mysql://community-rds-mysql.c7cmsiywagr6.ap-northeast-2.rds.amazonaws.com:3306/community
+
+  JWT_ACCESS_TOKEN_EXPIRATION: "1800000"
+  JWT_REFRESH_TOKEN_EXPIRATION: "1209600000"
+
+  APP_CORS_ALLOWED_ORIGIN: https://max-cm.cloud
+
+  APP_AWS_REGION: ap-northeast-2
+  APP_AWS_S3_BUCKET: community-board-images-prod
+
+  APP_IMAGE_CLEANUP_CRON: "0 0 3 * * *"
+  APP_IMAGE_ORPHAN_RETENTION_HOURS: "24"
+  APP_VIEW_COUNT_FLUSH_DELAY_MS: "5000"
+
+ingress:
+  className: alb
+
+  host: api.max-cm.cloud
+  path: /
+  pathType: Prefix
+
+  groupName: community # 여러 Ingress를 하나의 ALB로 묶기 위한 이름
+  scheme: internet-facing # ALB를 인터넷에 공개
+  targetType: instance # Nodeport로 통신하기 위해 instance 사용
+
+  listenPorts: '[{"HTTP":80},{"HTTPS":443}]'
+  sslRedirect: "443"
+  certificateArn: arn:aws:acm:ap-northeast-2:929368845727:certificate/acdb307b-6550-41d8-9877-56b566ca78a0
+
+  healthCheck:
+    path: /health/ready
+    successCodes: "200"

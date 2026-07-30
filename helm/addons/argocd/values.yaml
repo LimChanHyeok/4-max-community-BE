@@ -1,0 +1,37 @@
+# helm/addons/argocd/values.yaml
+
+dex:
+  enabled: false
+
+notifications:
+  enabled: false
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+
+server:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+
+applicationSet:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi
+
+redis:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 64Mi

@@ -1,24 +1,27 @@
-HELP.md
-.gradle
+### Gradle ###
+.gradle/
 build/
 !gradle/wrapper/gradle-wrapper.jar
 !**/src/main/**/build/
 !**/src/test/**/build/
+
+### Spring Boot ###
+HELP.md
 
 ### STS ###
 .apt_generated
 .classpath
 .factorypath
 .project
-.settings
+.settings/
 .springBeans
-.sts4-cache
+.sts4-cache/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
 
 ### IntelliJ IDEA ###
-.idea
+.idea/
 *.iws
 *.iml
 *.ipr
@@ -27,11 +30,11 @@ out/
 !**/src/test/**/out/
 
 ### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
+nbproject/private/
+nbbuild/
+dist/
+nbdist/
+.nb-gradle/
 
 ### VS Code ###
 .vscode/
@@ -39,11 +42,27 @@ out/
 ### Application config ###
 src/main/resources/application.properties
 src/main/resources/application-local.properties
-src/main/resources/application-dev.propertiesg
+src/main/resources/application-dev.properties
 
 ### Environment variables ###
 .env
 .env.*
+!.env.example
+
+### Kubernetes secrets ###
+k8s/community-backend-secret.yml
+k8s/secrets/
+**/values-secret.yaml
+**/values-secret.yml
+**/values-secrets.yaml
+**/values-secrets.yml
+
+### Private keys and certificates ###
+*.pem
+*.key
+*.p12
+*.jks
+*.keystore
 
 ### Uploaded files ###
 uploads/

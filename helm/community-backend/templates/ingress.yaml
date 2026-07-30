@@ -1,0 +1,57 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: community-backend-ingress
+  labels:
+    app: community
+    tier: backend
+    env: prod
+    app.kubernetes.io/name: community-backend
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    helm.sh/chart: {{ printf "%s-%s" .Chart.Name (.Chart.Version | replace "+" "_") | quote }}
+
+  # ALB 설정도 Kubernetes Ingress를 통해 선언적으로 관리
+  annotations:
+    # Frontend Ingress와 같은 ALB를 공유하기 위한 그룹 이름
+    alb.ingress.kubernetes.io/group.name: {{ .Values.ingress.groupName | quote }}
+
+    # 인터넷에서 접근할 수 있는 Public ALB 생성
+    alb.ingress.kubernetes.io/scheme: {{ .Values.ingress.scheme | quote }}
+
+    # Worker EC2와 Service의 NodePort를 Target으로 등록
+    alb.ingress.kubernetes.io/target-type: {{ .Values.ingress.targetType | quote }}
+
+    # ALB에 HTTP 80, HTTPS 443 Listener 생성
+    alb.ingress.kubernetes.io/listen-ports: {{ .Values.ingress.listenPorts | quote }}
+
+    # HTTP 요청을 HTTPS 443으로 Redirect
+    alb.ingress.kubernetes.io/ssl-redirect: {{ .Values.ingress.sslRedirect | quote }}
+
+    # HTTPS Listener에 연결할 ACM 인증서
+    alb.ingress.kubernetes.io/certificate-arn: {{ .Values.ingress.certificateArn | quote }}
+
+    # ALB에서 Backend까지 HTTP로 통신
+    alb.ingress.kubernetes.io/backend-protocol: "HTTP"
+
+    # ALB Target Group Health Check 설정
+    alb.ingress.kubernetes.io/healthcheck-protocol: "HTTP"
+    alb.ingress.kubernetes.io/healthcheck-port: "traffic-port"
+    alb.ingress.kubernetes.io/healthcheck-path: {{ .Values.ingress.healthCheck.path | quote }}
+    alb.ingress.kubernetes.io/success-codes: {{ .Values.ingress.healthCheck.successCodes | quote }}
+
+spec:
+  ingressClassName: {{ .Values.ingress.className | quote }}
+
+  rules:
+    - host: {{ .Values.ingress.host | quote }}
+      http:
+        paths:
+          - path: {{ .Values.ingress.path | quote }}
+            pathType: {{ .Values.ingress.pathType }}
+            backend:
+              service:
+                name: community-backend-service
+                port:
+                  number: {{ .Values.service.port }}

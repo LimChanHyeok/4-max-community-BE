@@ -1,0 +1,28 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: community-prod
+  namespace: argocd
+
+spec:
+  description: Community production project
+
+  sourceRepos:
+    - https://github.com/LimChanHyeok/4-max-community-BE.git
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: community-prod-backend
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+
+    - group: ""
+      kind: Service
+
+    - group: apps
+      kind: Deployment
+
+    - group: networking.k8s.io
+      kind: Ingress

@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: community-backend-limitrange
+  namespace: community-prod-backend
+  labels:
+    app: community
+    tier: backend
+    env: prod
+
+spec:
+  limits:
+    - type: Container
+
+      defaultRequest:
+        cpu: 200m
+        memory: 400Mi
+
+      default:
+        cpu: "2"
+        memory: 650Mi
