@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-backend-configmap
+  namespace: community-prod-backend
+  labels:
+    app: community
+    tier: backend
+    env: prod
+data:
+  SPRING_PROFILES_ACTIVE: "prod"
+
+  DB_URL: "jdbc:mysql://community-rds-mysql.c7cmsiywagr6.ap-northeast-2.rds.amazonaws.com:3306/community?serverTimezone=Asia/Seoul&characterEncoding=UTF-8"
+
+  JWT_ACCESS_TOKEN_EXPIRATION: "1800000"
+  JWT_REFRESH_TOKEN_EXPIRATION: "1209600000"
+
+  APP_CORS_ALLOWED_ORIGIN: "https://max-cm.cloud"
+
+  APP_AWS_REGION: "ap-northeast-2"
+  APP_AWS_S3_BUCKET: "community-board-images-prod"
+
+  APP_IMAGE_ORPHAN_RETENTION_HOURS: "24"
+  APP_IMAGE_CLEANUP_CRON: "0 0 3 * * *"
+
+  APP_VIEW_COUNT_FLUSH_DELAY_MS: "5000"

@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: community-backend-configmap
+  labels:
+    app: community
+    tier: backend
+    env: prod
+    app.kubernetes.io/name: community-backend
+    app.kubernetes.io/instance: {{ .Release.Name | quote }}
+    app.kubernetes.io/component: backend
+    app.kubernetes.io/managed-by: {{ .Release.Service | quote }}
+    helm.sh/chart: {{ printf "%s-%s" .Chart.Name (.Chart.Version | replace "+" "_") | quote }}
+
+data:
+  SPRING_PROFILES_ACTIVE: {{ .Values.config.SPRING_PROFILES_ACTIVE | quote }}
+  DB_URL: {{ .Values.config.DB_URL | quote }}
+  JWT_ACCESS_TOKEN_EXPIRATION: {{ .Values.config.JWT_ACCESS_TOKEN_EXPIRATION | quote }}
+  JWT_REFRESH_TOKEN_EXPIRATION: {{ .Values.config.JWT_REFRESH_TOKEN_EXPIRATION | quote }}
+  APP_CORS_ALLOWED_ORIGIN: {{ .Values.config.APP_CORS_ALLOWED_ORIGIN | quote }}
+  APP_AWS_REGION: {{ .Values.config.APP_AWS_REGION | quote }}
+  APP_AWS_S3_BUCKET: {{ .Values.config.APP_AWS_S3_BUCKET | quote }}
+  APP_IMAGE_CLEANUP_CRON: {{ .Values.config.APP_IMAGE_CLEANUP_CRON | quote }}
+  APP_IMAGE_ORPHAN_RETENTION_HOURS: {{ .Values.config.APP_IMAGE_ORPHAN_RETENTION_HOURS | quote }}
+  APP_VIEW_COUNT_FLUSH_DELAY_MS: {{ .Values.config.APP_VIEW_COUNT_FLUSH_DELAY_MS | quote }}

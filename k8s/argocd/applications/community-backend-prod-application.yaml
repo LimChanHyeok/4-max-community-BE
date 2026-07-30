@@ -1,0 +1,23 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: community-backend-prod
+  namespace: argocd
+
+spec:
+  project: community-prod
+
+  source:
+    repoURL: https://github.com/LimChanHyeok/4-max-community-BE.git
+    targetRevision: main
+    path: helm/community-backend
+
+    helm:
+      valueFiles:
+        - values-prod.yaml
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: community-prod-backend
+
+  syncPolicy: {}
