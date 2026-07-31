@@ -59,6 +59,10 @@ dependencies {
     //S3 SDK 의존성
     implementation 'software.amazon.awssdk:s3:2.25.60'
 
+    // 프로메테우스 전용 의존성
+    implementation 'org.springframework.boot:spring-boot-starter-actuator'
+    runtimeOnly 'io.micrometer:micrometer-registry-prometheus'
+
 }
 
 tasks.named('test') {
@@ -66,6 +70,7 @@ tasks.named('test') {
         excludeTags 'integration'
     }
 }
+
 
 tasks.register('integrationTest', Test) {
     description = 'Runs integration tests.'
@@ -80,4 +85,8 @@ tasks.register('integrationTest', Test) {
 
 tasks.named('check') {
     dependsOn tasks.named('integrationTest')
+}
+
+tasks.named('bootJar') {
+    archiveFileName = 'app.jar'
 }

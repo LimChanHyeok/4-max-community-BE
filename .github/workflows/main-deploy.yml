@@ -96,19 +96,10 @@ jobs:
         run: |
           set -Eeuo pipefail
 
-          JAR_FILE=$(find build/libs \
-            -maxdepth 1 \
-            -name "*.jar" \
-            ! -name "*-plain.jar" \
-            | head -n 1)
-
-          if [ -z "$JAR_FILE" ]; then
-            echo "No executable jar file found in build/libs"
-            exit 1
-          fi
-
-          cp "$JAR_FILE" build/libs/app.jar
-          ls -lh build/libs/app.jar
+          - name: Verify executable JAR
+            run: |
+              test -f build/libs/app.jar
+              ls -lh build/libs/app.jar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4

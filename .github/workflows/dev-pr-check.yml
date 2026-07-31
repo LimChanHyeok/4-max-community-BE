@@ -92,8 +92,6 @@ jobs:
         shell: bash
         run: |
           ./gradlew bootJar --no-daemon
-          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
-          cp "$JAR_FILE" build/libs/app.jar # dockerfile에선 app.jar를 찾기 때문에  app.jar로 복사
 
       - name: Build Docker image
         if: steps.changes.outputs.docker_changed == 'true'
