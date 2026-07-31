@@ -1,0 +1,58 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: infrastructure
+  namespace: argocd
+
+spec:
+  description: Infrastructure add-ons managed by Argo CD
+
+  # 이 Project의 Application이 사용할 수 있는 저장소
+  sourceRepos:
+    # 프로젝트에서 관리하는 Helm Values 파일
+    - https://github.com/LimChanHyeok/4-max-community-BE.git
+
+    # AWS EBS CSI Driver 저장소
+    - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+
+  # kube-system에 설치하는 것만 허용
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: kube-system
+
+  # kube-system Namespace 안에 생성할 수 있는 리소스
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ServiceAccount
+
+    - group: ""
+      kind: ConfigMap
+
+    - group: ""
+      kind: Service
+
+    - group: apps
+      kind: Deployment
+
+    - group: apps
+      kind: DaemonSet
+
+    - group: policy
+      kind: PodDisruptionBudget
+
+    - group: rbac.authorization.k8s.io
+      kind: Role
+
+    - group: rbac.authorization.k8s.io
+      kind: RoleBinding
+
+  # 특정 Namespace에 속하지 않는 클러스터 범위 리소스
+  clusterResourceWhitelist:
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+
+    - group: storage.k8s.io
+      kind: CSIDriver

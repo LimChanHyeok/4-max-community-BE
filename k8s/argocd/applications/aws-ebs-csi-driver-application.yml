@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: aws-ebs-csi-driver
+  namespace: argocd
+
+spec:
+  project: infrastructure
+
+  sources:
+    # AWS EBS CSI Driver 공식 Helm Chart
+    - repoURL: https://kubernetes-sigs.github.io/aws-ebs-csi-driver
+      chart: aws-ebs-csi-driver
+      targetRevision: 2.63.1
+
+      helm:
+        valueFiles:
+          - $values/helm/addons/aws-ebs-csi-driver/values.yaml
+
+    # Values가 저장된 Community Git 저장소
+    - repoURL: https://github.com/LimChanHyeok/4-max-community-BE.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  #직접 Sync
+  syncPolicy: {}
