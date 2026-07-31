@@ -92,14 +92,10 @@ jobs:
       - name: Build application
         run: ./gradlew clean build --no-daemon
 
-      - name: Prepare app.jar for Docker build
+      - name: Verify executable JAR
         run: |
-          set -Eeuo pipefail
-
-          - name: Verify executable JAR
-            run: |
-              test -f build/libs/app.jar
-              ls -lh build/libs/app.jar
+          test -f build/libs/app.jar
+          ls -lh build/libs/app.jar
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@v4
