@@ -1,0 +1,28 @@
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: ebs-gp3-monitoring-retain
+
+# AWS EBS CSI Driver를 통해 EBS 볼륨을 동적으로 생성한다.
+provisioner: ebs.csi.aws.com
+
+parameters:
+  # 범용 SSD인 gp3 EBS를 사용한다.
+  type: gp3
+
+  # 생성되는 EBS 볼륨을 암호화한다.
+  encrypted: "true"
+
+  # Linux 파일시스템으로 ext4를 사용한다.
+  csi.storage.k8s.io/fstype: ext4
+
+# PVC가 삭제돼도 PV와 실제 EBS 볼륨을 자동 삭제하지 않는다.
+# 중요한 Prometheus 및 Loki 데이터를 보호하기 위한 정책이다.
+reclaimPolicy: Retain
+
+# 기존 PVC의 요청 용량을 이후 증가시킬 수 있도록 허용한다.
+allowVolumeExpansion: true
+
+# PVC를 사용하는 Pod가 배치될 Worker가 정해진 뒤,
+# 해당 Worker와 동일한 Availability Zone에 EBS를 생성한다.
+volumeBindingMode: WaitForFirstConsumer

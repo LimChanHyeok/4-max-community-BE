@@ -12,47 +12,32 @@ spec:
     # 프로젝트에서 관리하는 Helm Values 파일
     - https://github.com/LimChanHyeok/4-max-community-BE.git
 
-    # AWS EBS CSI Driver 저장소
+    # AWS EBS CSI Driver 공식 Helm 저장소
     - https://kubernetes-sigs.github.io/aws-ebs-csi-driver
 
-  # kube-system에 설치하는 것만 허용
+    # kube-prometheus-stack 공식 Helm 저장소
+    - https://prometheus-community.github.io/helm-charts
+
+  # 이 Project가 배포할 수 있는 Namespace
   destinations:
+    # AWS EBS CSI Driver 등 클러스터 Add-on
     - server: https://kubernetes.default.svc
       namespace: kube-system
 
-  # kube-system Namespace 안에 생성할 수 있는 리소스
+    # Prometheus, Grafana, kube-state-metrics 등 모니터링 구성요소
+    - server: https://kubernetes.default.svc
+      namespace: monitoring
+
+  # Namespace에 속하는 리소스 허용
+  # 다양한 종류의 리소스를 생성하므로 인프라 Project 안에서는
+  # 모든 Namespaced 리소스를 허용한다.
   namespaceResourceWhitelist:
-    - group: ""
-      kind: ServiceAccount
+    - group: "*"
+      kind: "*"
 
-    - group: ""
-      kind: ConfigMap
-
-    - group: ""
-      kind: Service
-
-    - group: apps
-      kind: Deployment
-
-    - group: apps
-      kind: DaemonSet
-
-    - group: policy
-      kind: PodDisruptionBudget
-
-    - group: rbac.authorization.k8s.io
-      kind: Role
-
-    - group: rbac.authorization.k8s.io
-      kind: RoleBinding
-
-  # 특정 Namespace에 속하지 않는 클러스터 범위 리소스
+  # Namespace에 속하지 않는 클러스터 범위 리소스 허용
+  # Chart 버전 변경 시 생성 리소스 종류가 달라질 수 있으므로
+  # 인프라 Add-on 전용 Project에서는 모든 클러스터 리소스를 허용한다.
   clusterResourceWhitelist:
-    - group: rbac.authorization.k8s.io
-      kind: ClusterRole
-
-    - group: rbac.authorization.k8s.io
-      kind: ClusterRoleBinding
-
-    - group: storage.k8s.io
-      kind: CSIDriver
+    - group: "*"
+      kind: "*"

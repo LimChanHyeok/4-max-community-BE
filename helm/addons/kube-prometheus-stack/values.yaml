@@ -1,0 +1,145 @@
+# 알람은 일단 비활성화
+alertmanager:
+  enabled: false
+
+
+kubeEtcd:
+  enabled: false
+
+kubeControllerManager:
+  enabled: false
+
+kubeScheduler:
+  enabled: false
+
+kubeProxy:
+  enabled: false
+
+# Prometheus Operator
+prometheusOperator:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 256Mi
+
+  # Control Plane이 아닌 Worker에만 배치한다.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+# Prometheus 서버
+prometheus:
+  prometheusSpec:
+    # 메트릭 수집 및 규칙 평가 주기
+    scrapeInterval: 30s
+    evaluationInterval: 30s
+
+    # 시간과 저장 용량을 함께 제한한다.
+    # 3일동안 보관하고 PVC를 5GB로 제한하럭싱기 때문에 디스크를 완전히 채우지 않게
+    # 데이터 크기를 4GB로 제한
+    retention: 3d
+    retentionSize: 4GB
+
+    resources:
+      requests:
+        cpu: 200m
+        memory: 512Mi
+      limits:
+        cpu: 1
+        memory: 1Gi
+
+    # Control Plane이 아닌 Worker에만 배치한다.
+    affinity:
+      nodeAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          nodeSelectorTerms:
+            - matchExpressions:
+                - key: node-role.kubernetes.io/control-plane
+                  operator: DoesNotExist
+
+    # StatefulSet이 삭제되거나 축소돼도 PVC를 유지한다.
+    persistentVolumeClaimRetentionPolicy:
+      whenDeleted: Retain
+      whenScaled: Retain
+
+    # Prometheus TSDB 저장소
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: ebs-gp3-monitoring-retain # StorageClass 이름
+          accessModes:
+            - ReadWriteOnce
+          resources:
+            requests:
+              storage: 5Gi
+
+    # 여기서 기본 설정값은 true로 설치할 때 딸려오는 ServiceMonitor를 선택하지만
+    # 따로 만들 것이기 때문에 false로 설정
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+
+    # community-prod-backend를 포함한 모든 Namespace에서 검색한다.
+    serviceMonitorNamespaceSelector: {}
+
+# Grafana
+grafana:
+  admin:
+    existingSecret: grafana-admin-credentials
+    userKey: admin-user
+    passwordKey: admin-password
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 300m
+      memory: 512Mi
+
+  # Control Plane이 아닌 Worker에만 배치한다.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+# Kubernetes 객체 상태 메트릭
+kube-state-metrics:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+# 각 Node의 CPU, 메모리, 디스크, 네트워크 메트릭
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 64Mi
+
+  # Control Plane의 NoSchedule Taint도 허용해 모든 노드에 설치한다.
+  tolerations:
+    - operator: Exists
