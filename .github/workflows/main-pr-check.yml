@@ -60,16 +60,9 @@ jobs:
       - name: Build application
         run: ./gradlew clean build --no-daemon
 
-      - name: Prepare app.jar for Docker build
+      - name: Verify executable JAR
         run: |
-          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
-
-          if [ -z "$JAR_FILE" ]; then
-            echo "No executable jar file found in build/libs"
-            exit 1
-          fi
-
-          cp "$JAR_FILE" build/libs/app.jar
+          test -f build/libs/app.jar
           ls -lh build/libs/app.jar
 
       - name: Build Docker image
