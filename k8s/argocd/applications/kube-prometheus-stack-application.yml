@@ -1,0 +1,38 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+
+spec:
+  # 클러스터 인프라 Add-on 전용 AppProject 사용
+  project: infrastructure
+
+  # 공식 Helm Chart와 GitHub의 커스텀 Values를 함께 사용
+  sources:
+    # kube-prometheus-stack 공식 Helm Chart
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+
+      # Chart 버전
+      targetRevision: 87.21.0
+
+      helm:
+        valueFiles:
+          - $values/helm/addons/kube-prometheus-stack/values.yaml
+
+    # 프로젝트의 커스텀 Values가 저장된 Git 저장소
+    - repoURL: https://github.com/LimChanHyeok/4-max-community-BE.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+
+  # kube-prometheus-stack이 생성하는 대형 CRD를 안정적으로 적용하기 위해
+  # Client-Side Apply 대신 Server-Side Apply를 사용한다.
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
