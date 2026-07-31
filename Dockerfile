@@ -14,5 +14,6 @@ RUN mkdir -p /app/uploads && chown -R app:app /app/uploads
 USER app
 
 EXPOSE 8080
+EXPOSE 9090
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

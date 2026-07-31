@@ -2,8 +2,7 @@ replicaCount: 3
 
 image:
   repository: 929368845727.dkr.ecr.ap-northeast-2.amazonaws.com/community-backend
-  tag: main-56a946d
-
+  tag: main-9d66491
 resources:
   requests:
     cpu: 200m
@@ -11,7 +10,6 @@ resources:
   limits:
     cpu: "2"
     memory: 650Mi
-
 secret:
   existingSecret: community-backend-secret
 
@@ -34,7 +32,9 @@ config:
   APP_IMAGE_CLEANUP_CRON: "0 0 3 * * *"
   APP_IMAGE_ORPHAN_RETENTION_HOURS: "24"
   APP_VIEW_COUNT_FLUSH_DELAY_MS: "5000"
-
+  MANAGEMENT_SERVER_PORT: "9090"
+  MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus
+  MANAGEMENT_METRICS_TAGS_APPLICATION: community-backend
 ingress:
   className: alb
 

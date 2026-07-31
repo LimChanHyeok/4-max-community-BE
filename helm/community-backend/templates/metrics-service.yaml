@@ -1,0 +1,21 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: community-backend-metrics
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: community
+    tier: backend
+    env: prod
+    monitoring: backend
+spec:
+  type: ClusterIP
+  selector:
+    app: community
+    tier: backend
+    env: prod
+  ports:
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
