@@ -1,4 +1,4 @@
-name: Main Deploy
+name: legacy Main Deploy
 
 on:
   workflow_dispatch:
