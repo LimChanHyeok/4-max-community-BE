@@ -1,0 +1,51 @@
+# 파일을 설치할 때 설정값들
+controller:
+  region: ap-northeast-2
+
+  # 기본 복제본 수, 가용성을 위해 2로 설정
+  replicaCount: 2
+
+  # Controller Pod를 어디에 설치할지 Affinity 설정
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane # 이 라벨이 없는 노드에 배치한다.
+                operator: DoesNotExist
+
+    # Controller pod의 AntiAffinity
+    podAntiAffinity:
+      preferredDuringSchedulingIgnoredDuringExecution:
+        - weight: 100 # 가장 강한 선호도. 하지만 preferred라서 위에 required처럼 강제는 아님
+          podAffinityTerm:
+            labelSelector:
+              matchExpressions:
+                - key: app
+                  operator: In
+                  values:
+                    - ebs-csi-controller # 이 라벨이 붙은 Pod에 배치하라는 듯
+            topologyKey: kubernetes.io/hostname # 노드 단위로 분리하라는 뜻
+
+node: # EBS CSI Node 플러그인 설정
+  # 현재 클러스터는 Linux Node만 사용한다.
+  enableLinux: true
+  enableWindows: false
+
+  # Worker EC2의 Instance ID, AZ 등의 정보를 IMDS에서 조회한다는 뜻
+  metadataSources: "imds"
+
+  # EBS CSI Node DaemonSet도 Control Plane에는 생성하지 않는다.
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+# StorageClasses는 따로 작성
+storageClasses: []
+
+defaultStorageClass:
+  enabled: false
