@@ -92,7 +92,6 @@ jobs:
         shell: bash
         run: |
           ./gradlew bootJar --no-daemon
-          JAR_FILE=$(find build/libs -name "*.jar" ! -name "*-plain.jar" | head -n 1)
 
       - name: Build Docker image
         if: steps.changes.outputs.docker_changed == 'true'
