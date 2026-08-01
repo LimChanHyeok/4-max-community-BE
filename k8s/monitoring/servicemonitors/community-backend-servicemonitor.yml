@@ -1,0 +1,27 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+
+metadata:
+  name: community-backend
+  namespace: monitoring
+
+spec:
+  # 수집 대상 Service가 존재하는 Namespace
+  namespaceSelector:
+    matchNames:
+      - community-prod-backend
+
+  # Pod가 아니라 Service의 Label을 기준으로 대상을 선택한다.
+  selector:
+    matchLabels:
+      monitoring: backend
+
+  endpoints:
+    # Service에 선언된 포트 이름을 지정한다.
+    - port: metrics
+
+      # Spring Boot Actuator가 메트릭을 노출하는 경로
+      path: /actuator/prometheus
+
+      # Backend 메트릭 수집 주기
+      interval: 30s
