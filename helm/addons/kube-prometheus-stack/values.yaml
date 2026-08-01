@@ -81,7 +81,7 @@ prometheus:
               storage: 5Gi
 
     # 여기서 기본 설정값은 true로 설치할 때 딸려오는 ServiceMonitor를 선택하지만
-    # 따로 만들 것이기 때문에 false로 설정
+    # backend는 따로 만들것이기 때문에 false(검색 범위를 넓힌것)
     serviceMonitorSelectorNilUsesHelmValues: false
     serviceMonitorSelector: {}
 
