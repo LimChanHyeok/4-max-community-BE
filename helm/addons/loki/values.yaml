@@ -1,0 +1,177 @@
+# Loki Helm Chart 18.7.1
+# Loki Application 3.7.4
+
+# Loki안의 여러 기능들을 하나의 프로세스에서 실행하도록 하기 위함
+# 현재 환경은 소규모이기 때문에 각각의 프로세스들을 별도의 Pod로 나눌 필요가 없다고 생각했다.
+deploymentMode: Monolithic
+
+loki:
+  # monitoring Namespace 내부에서만 사용하기 때문에 false
+  auth_enabled: false
+
+  # SingleBinary Loki Pod가 1개이므로 복제 계수도 1
+  commonConfig:
+    replication_factor: 1
+
+  # TSDB 인덱스와 filesystem 저장 방식 사용
+  schemaConfig:
+    configs:
+      - from: "2026-07-07"
+        store: tsdb
+        object_store: filesystem
+        schema: v13
+        index:
+          prefix: loki_index_
+          period: 24h
+
+  # Loki 전용 PVC에 인덱스와 로그 Chunk 저장
+  storage:
+    type: filesystem
+
+  # 로그 보존 및 Structured Metadata 설정
+  limits_config:
+    retention_period: 72h
+    allow_structured_metadata: true #라벨로 쓰기 애매한 것들을 Structure Metadate로 저장할 수 있도록 허용
+    volume_enabled: true
+
+  # 보존 기간이 지난 로그를 정리
+  compactor:
+    working_directory: /var/loki/compactor
+    retention_enabled: true
+    delete_request_store: filesystem
+
+# Monolithic Loki Pod
+singleBinary:
+  replicas: 1
+
+  # Loki 전용 PVC → EBS
+  persistence:
+    enabled: true
+    storageClass: ebs-gp3-monitoring-retain
+
+    accessModes:
+      - ReadWriteOnce
+
+    size: 5Gi
+
+    # StatefulSet 삭제·축소 시 PVC를 자동으로 제거하지 않음
+    enableStatefulSetAutoDeletePVC: false
+    whenDeleted: Retain
+    whenScaled: Retain
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 1Gi
+
+  # Control Plane을 제외하고 Worker에 배치
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+  # Replica가 1개이므로 PDB 비활성화
+  podDisruptionBudget:
+    enabled: false
+
+# Alloy와 Grafana가 Loki에 접근할 내부 Gateway
+gateway:
+  enabled: true
+  replicas: 1
+
+  service:
+    type: ClusterIP
+
+  ingress:
+    enabled: false
+
+  resources:
+    requests:
+      cpu: 20m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  affinity:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+          - matchExpressions:
+              - key: node-role.kubernetes.io/control-plane
+                operator: DoesNotExist
+
+  # Gateway도 Replica가 1개이므로 PDB 비활성화
+  podDisruptionBudget:
+    enabled: false
+
+# 현재 규모에서는 별도 Memcached Cache를 사용하지 않음
+chunksCache:
+  enabled: false
+
+resultsCache:
+  enabled: false
+
+# Loki 정상 여부를 반복 검사하는 Canary 비활성화
+lokiCanary:
+  enabled: false
+
+# Helm Test는 Canary를 사용하므로 함께 비활성화
+test:
+  enabled: false
+
+# 기존 kube-prometheus-stack이 Loki 자체 메트릭을 수집
+monitoring:
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+
+# 내부 MinIO를 사용하지 않고 EBS filesystem 사용
+minio:
+  enabled: false
+
+# Monolithic 이외의 배포 모드는 모두 비활성화
+backend:
+  replicas: 0
+
+read:
+  replicas: 0
+
+write:
+  replicas: 0
+
+ingester:
+  replicas: 0
+
+querier:
+  replicas: 0
+
+queryFrontend:
+  replicas: 0
+
+queryScheduler:
+  replicas: 0
+
+distributor:
+  replicas: 0
+
+compactor:
+  replicas: 0
+
+indexGateway:
+  replicas: 0
+
+bloomPlanner:
+  replicas: 0
+
+bloomBuilder:
+  replicas: 0
+
+bloomGateway:
+  replicas: 0

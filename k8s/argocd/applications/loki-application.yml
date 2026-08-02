@@ -1,0 +1,29 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+spec:
+  project: infrastructure
+
+  sources:
+    # 공식 Loki Helm Chart
+    - repoURL: https://grafana-community.github.io/helm-charts
+      chart: loki
+      targetRevision: 18.7.1
+      helm:
+        valueFiles:
+          - $values/helm/addons/loki/values.yaml
+
+    # 프로젝트 저장소의 values.yaml 참조
+    - repoURL: https://github.com/LimChanHyeok/4-max-community-BE.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
