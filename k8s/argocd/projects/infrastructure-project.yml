@@ -34,6 +34,10 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: monitoring
 
+    #Alloy의 조회 전용 Role과 RoleBinding 생성 허용
+    - server: https://kubernetes.default.svc
+      namespace: community-prod-backend
+
   # Namespace에 속하는 리소스 허용
   # 다양한 종류의 리소스를 생성하므로 인프라 Project 안에서는
   # 모든 Namespaced 리소스를 허용한다.
