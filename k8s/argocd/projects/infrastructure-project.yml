@@ -18,7 +18,11 @@ spec:
     # kube-prometheus-stack 공식 Helm 저장소
     - https://prometheus-community.github.io/helm-charts
 
+    # loke 공식 저장소
     - https://grafana-community.github.io/helm-charts
+
+    # Alloy 공식 저장소
+    - https://grafana.github.io/helm-charts
 
   # 이 Project가 배포할 수 있는 Namespace
   destinations:
