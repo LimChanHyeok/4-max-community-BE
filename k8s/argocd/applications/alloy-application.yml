@@ -1,0 +1,30 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: alloy
+  namespace: argocd
+
+spec:
+  project: infrastructure
+
+  sources:
+    # 공식 Alloy Helm Chart
+    - repoURL: https://grafana.github.io/helm-charts
+      chart: alloy
+      targetRevision: 1.11.0
+      helm:
+        valueFiles:
+          - $values/helm/addons/alloy/values.yaml
+
+    # 프로젝트 Git 저장소의 values.yaml 참조
+    - repoURL: https://github.com/LimChanHyeok/4-max-community-BE.git
+      targetRevision: main
+      ref: values
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  syncPolicy:
+    syncOptions:
+      - ServerSideApply=true
