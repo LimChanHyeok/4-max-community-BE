@@ -24,4 +24,4 @@ spec:
       path: /actuator/prometheus
 
       # Backend 메트릭 수집 주기
-      interval: 30s
+      interval: 5s
