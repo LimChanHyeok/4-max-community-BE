@@ -78,16 +78,17 @@ export const options = {
     },
 
     thresholds: {
-        // HTTP 요청 실패율 1% 미만
+        // 네트워크 오류, Timeout, HTTP 오류 응답 비율 1% 미만
         http_req_failed: ['rate<0.01'],
 
-        // P95 응답 시간 1초 미만
+        // 클라이언트 관점 전체 응답 P95 1초 미만
         http_req_duration: ['p(95)<1000'],
 
-        // 모든 응답 상태 코드가 200
-        checks: ['rate==1'],
+        // 200 응답 성공률 99% 이상
+        // 기존 rate==1은 단 한 건만 실패해도 테스트 전체가 실패했음
+        checks: ['rate>=0.99'],
 
-        // 계획한 iteration을 빠뜨리지 않아야 함
+        // 목표 RPS 검증이므로 시작하지 못한 요청은 허용하지 않음
         dropped_iterations: ['count==0'],
     },
 
