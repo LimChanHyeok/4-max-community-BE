@@ -28,7 +28,7 @@ config:
   MANAGEMENT_SERVER_PORT: "9090"
   MANAGEMENT_ENDPOINTS_WEB_EXPOSURE_INCLUDE: prometheus
   MANAGEMENT_METRICS_TAGS_APPLICATION: community-backend
-  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "4"
+  SPRING_DATASOURCE_HIKARI_MAXIMUM_POOL_SIZE: "3"
   SPRING_DATASOURCE_HIKARI_POOL_NAME: "community-backend-hikari"
   MANAGEMENT_METRICS_DISTRIBUTION_PERCENTILESHISTOGRAM_HTTP_SERVER_REQUESTS: "true"
   SERVER_TOMCAT_MBEANREGISTRY_ENABLED: "true"
@@ -37,7 +37,7 @@ ingress:
   host: api.max-cm.cloud
   path: /
   pathType: Prefix
-  groupName: community # 여러 Ingress를 하나의 ALB로 묶기 위한 이름
+  groupName: community # 여러 Ingress를 하나의 ALB로 묶기 위한 이름.
   scheme: internet-facing # ALB를 인터넷에 공개
   targetType: instance # Nodeport로 통신하기 위해 instance 사용
   listenPorts: '[{"HTTP":80},{"HTTPS":443}]'
