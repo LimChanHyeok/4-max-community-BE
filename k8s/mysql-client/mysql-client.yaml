@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: Pod
+
+metadata:
+  name: mysql-client
+  namespace: ops-tools
+
+spec:
+  restartPolicy: Always
+
+  containers:
+    - name: mysql-client
+      image: mysql:8.0
+
+      command:
+        - sh
+        - -c
+        - sleep infinity
+
+      resources:
+        requests:
+          cpu: 25m
+          memory: 64Mi
+        limits:
+          cpu: 200m
+          memory: 256Mi
