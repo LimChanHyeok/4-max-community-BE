@@ -37,7 +37,7 @@ ingress:
   host: api.max-cm.cloud
   path: /
   pathType: Prefix
-  groupName: community # 여러 Ingress를 하나의 ALB로 묶기 위한 이름
+  groupName: community # 여러 Ingress를 하나의 ALB로 묶기 위한 이름.
   scheme: internet-facing # ALB를 인터넷에 공개
   targetType: instance # Nodeport로 통신하기 위해 instance 사용
   listenPorts: '[{"HTTP":80},{"HTTPS":443}]'
