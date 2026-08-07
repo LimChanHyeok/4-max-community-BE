@@ -1588,15 +1588,12 @@ function updatePost(
             `${BASE_URL}/posts/${postId}`,
 
             JSON.stringify({
-                title:
-                    `${RUN_ID} 수정 게시글 ` +
-                    `${postId}`,
+                title: `수정 게시글 ${postId}`,
 
                 content:
                     `${RUN_ID} 수정 ` +
                     `vu=${exec.vu.idInTest}, ` +
-                    `iteration=` +
-                    `${exec.scenario.iterationInTest}`,
+                    `iteration=${exec.scenario.iterationInTest}`,
             }),
 
             {
