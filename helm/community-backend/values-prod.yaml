@@ -1,7 +1,7 @@
 replicaCount: 3
 image:
   repository: 929368845727.dkr.ecr.ap-northeast-2.amazonaws.com/community-backend
-  tag: main-90d6292
+  tag: main-7e2c330
 resources:
   requests:
     cpu: 200m
