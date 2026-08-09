@@ -39,23 +39,26 @@ public class PostLikeService {
 
         boolean alreadyLiked = postLikeRepository.existsById(postLikeId);
 
-        /**
-         * 좋아요를 누르지 않았을 때 해야됨
-         */
         if (alreadyLiked) {
             throw new CustomException(ErrorCode.ALREADY_LIKED_POST);
         }
 
         PostLike postLike = PostLike.create(user, post);
 
+        /*
+         * post_like INSERT보다 posts UPDATE를 먼저 실행해
+         * posts 행의 X Lock을 먼저 획득한다.
+         */
+        int updatedCount = postRepository.increaseLikeCount(postId);
+
+        if (updatedCount != 1) {
+            throw new CustomException(ErrorCode.POST_NOT_FOUND);
+        }
+
         postLikeRepository.save(postLike);
 
-        /**
-         * 기존 엔티티값을 변경하는 것이 아닌 DB에서 현재 like_count 값을 기준으로 원자적으로 +1
-         */
-        postRepository.increaseLikeCount(postId);
-
         Long likeCount = postRepository.findLikeCountById(postId);
+
         return new PostLikeResponse(
                 postId,
                 true,
@@ -65,7 +68,7 @@ public class PostLikeService {
 
     @Transactional
     public PostLikeResponse unlikePost(Long postId, Long loginUserId) {
-        Post post = postRepository.findById(postId)
+        postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
         PostLikeId postLikeId = new PostLikeId(loginUserId, postId);
@@ -73,12 +76,19 @@ public class PostLikeService {
         PostLike postLike = postLikeRepository.findById(postLikeId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_LIKE_NOT_FOUND));
 
+        /*
+         * post_like DELETE보다 posts UPDATE를 먼저 실행해서
+         * posts 행의 X Lock을 먼저 획득한다.
+         */
+        int updatedCount = postRepository.decreaseLikeCount(postId);
+
+        if (updatedCount != 1) {
+            throw new CustomException(ErrorCode.POST_NOT_FOUND);
+        }
+
         postLikeRepository.delete(postLike);
 
-
-        postRepository.decreaseLikeCount(postId);
-
-        //최신 좋아요수를 반영하기 위해
+        // 최신 좋아요 수 조회
         Long likeCount = postRepository.findLikeCountById(postId);
 
         return new PostLikeResponse(

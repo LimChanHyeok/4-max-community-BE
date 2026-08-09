@@ -54,6 +54,16 @@ public class CommentService {
         User user = userRepository.findById(loginUserId)
                 .orElseThrow(() -> new CustomException(ErrorCode.USER_NOT_FOUND));
 
+        /*
+         * comments INSERT보다 posts UPDATE를 먼저 실행해서
+         * posts 행의 X Lock을 먼저 획득한다.
+         */
+        int updatedCount = postRepository.increaseCommentCount(postId);
+
+        if (updatedCount != 1) {
+            throw new CustomException(ErrorCode.POST_NOT_FOUND);
+        }
+
         Comment comment = Comment.create(
                 post,
                 user,
@@ -61,13 +71,6 @@ public class CommentService {
         );
 
         Comment savedComment = commentRepository.save(comment);
-
-        /**
-         * 기존처럼 post.increaseCommentCount()로 엔티티 값을 변경하면
-         * 동시에 여러 댓글 등록 요청이 들어왔을 때 Lost Update가 발생할 수 있다.
-         * DB에서 현재 comment_count 값을 기준으로 원자적으로 +1 처리
-         */
-        postRepository.increaseCommentCount(postId);
 
         return commentRepository.findCreateResponseById(
                         savedComment.getId(),
@@ -240,12 +243,11 @@ public class CommentService {
             Long commentId,
             Long loginUserId
     ) {
-        Post post = postRepository.findById(postId)
+        postRepository.findById(postId)
                 .orElseThrow(() -> new CustomException(ErrorCode.POST_NOT_FOUND));
 
         Comment comment = commentRepository.findById(commentId)
                 .orElseThrow(() -> new CustomException(ErrorCode.COMMENT_NOT_FOUND));
-
 
         if (!comment.getPost().getId().equals(postId)) {
             throw new CustomException(ErrorCode.COMMENT_NOT_FOUND);
@@ -255,9 +257,17 @@ public class CommentService {
             throw new CustomException(ErrorCode.COMMENT_DELETE_FORBIDDEN);
         }
 
-        commentRepository.delete(comment);
+        /*
+         * comments DELETE보다 posts UPDATE를 먼저 실행해
+         * posts 행의 X Lock을 먼저 획득한다.
+         */
+        int updatedCount = postRepository.decreaseCommentCount(postId);
 
-        postRepository.decreaseCommentCount(postId);
+        if (updatedCount != 1) {
+            throw new CustomException(ErrorCode.POST_NOT_FOUND);
+        }
+
+        commentRepository.delete(comment);
     }
 
 
