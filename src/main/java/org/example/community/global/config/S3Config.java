@@ -8,7 +8,7 @@ import software.amazon.awssdk.regions.Region;
 import software.amazon.awssdk.services.s3.S3Client;
 
 @Configuration
-@Profile("prod")
+@Profile({"prod", "search"})
 public class S3Config {
 
     @Bean

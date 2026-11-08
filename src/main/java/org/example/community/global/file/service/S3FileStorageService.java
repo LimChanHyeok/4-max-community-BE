@@ -38,7 +38,7 @@ import java.util.UUID;
 @Slf4j
 @RequiredArgsConstructor
 @Service
-@Profile("prod")
+@Profile({"prod", "search"})
 public class S3FileStorageService implements FileStorageService {
 
     private final ImageFileValidator imageFileValidator;

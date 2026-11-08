@@ -1,0 +1,4 @@
+# Flyway는 기본적으로 비활성화하고 search 프로필에서만 사용한다.
+spring:
+  flyway:
+    enabled: false
