@@ -11,9 +11,8 @@ on:
   push:
     branches:
       - search-enhancement
-
-permissions:
-  contents: read
+      # PR #72를 머지하기 전에 검색 EC2에서 검증할 이미지를 발행한다.
+      - feature/69-search-environment
 
 concurrency:
   group: search-ci-${{ github.event.pull_request.number || github.ref }}
@@ -24,10 +23,15 @@ jobs:
     name: Compile, unit tests and Docker build
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
 
     steps:
       - name: Checkout source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - name: Set up JDK 21
         uses: actions/setup-java@v4
@@ -53,3 +57,36 @@ jobs:
 
       - name: Build Docker image
         run: docker build --platform linux/amd64 --tag community-backend:search-ci .
+
+      - name: Get AWS credentials for ECR
+        if: github.event_name == 'push' && github.repository == 'LimChanHyeok/4-max-community-BE'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: arn:aws:iam::929368845727:role/community-search-ci-ecr-push
+          aws-region: ap-northeast-2
+          role-duration-seconds: 900
+
+      - name: Push verified image to ECR
+        if: github.event_name == 'push' && github.repository == 'LimChanHyeok/4-max-community-BE'
+        shell: bash
+        env:
+          ECR_REGISTRY: 929368845727.dkr.ecr.ap-northeast-2.amazonaws.com
+          ECR_REPOSITORY: community-search-backend
+        run: |
+          set -euo pipefail
+          IMAGE_URI="$ECR_REGISTRY/$ECR_REPOSITORY:$GITHUB_SHA"
+
+          # 동일 커밋 재실행 시 이미 발행한 불변 태그를 재사용한다.
+          IMAGE_COUNT=$(aws ecr batch-get-image \
+            --repository-name "$ECR_REPOSITORY" \
+            --image-ids "imageTag=$GITHUB_SHA" \
+            --query 'length(images)' --output text)
+          if [[ "$IMAGE_COUNT" == 0 ]]; then
+            aws ecr get-login-password | docker login --username AWS --password-stdin "$ECR_REGISTRY"
+            docker tag community-backend:search-ci "$IMAGE_URI"
+            docker push "$IMAGE_URI"
+          else
+            printf '이미 발행한 이미지를 사용합니다. %s\n' "$IMAGE_URI"
+          fi
+
+          printf 'ECR 이미지: %s\n' "$IMAGE_URI" >> "$GITHUB_STEP_SUMMARY"
