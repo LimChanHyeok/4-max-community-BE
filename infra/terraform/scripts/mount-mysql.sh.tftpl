@@ -1,0 +1,44 @@
+
+MYSQL_DEVICE="/dev/disk/by-id/nvme-Amazon_Elastic_Block_Store_${volume_serial}"
+MYSQL_DIRECTORY="/srv/mysql"
+
+for attempt in {1..60}; do
+  if [ -b "$MYSQL_DEVICE" ]; then
+    break
+  fi
+  sleep 5
+done
+
+if [ ! -b "$MYSQL_DEVICE" ]; then
+  echo "MySQL data volume was not attached within 300 seconds"
+  exit 1
+fi
+
+MYSQL_FILESYSTEM=$(blkid -o value -s TYPE "$MYSQL_DEVICE" || true)
+if [ -z "$MYSQL_FILESYSTEM" ]; then
+  mkfs.ext4 "$MYSQL_DEVICE"
+elif [ "$MYSQL_FILESYSTEM" != "ext4" ]; then
+  echo "Unexpected filesystem on MySQL data volume: $MYSQL_FILESYSTEM"
+  exit 1
+fi
+
+mkdir -p "$MYSQL_DIRECTORY"
+MYSQL_UUID=$(blkid -o value -s UUID "$MYSQL_DEVICE")
+if ! grep -Fq "UUID=$MYSQL_UUID $MYSQL_DIRECTORY " /etc/fstab; then
+  echo "UUID=$MYSQL_UUID $MYSQL_DIRECTORY ext4 defaults 0 2" >> /etc/fstab
+fi
+
+if ! mountpoint -q "$MYSQL_DIRECTORY"; then
+  mount "$MYSQL_DIRECTORY"
+fi
+
+# 재부팅 후 EBS 마운트가 끝난 다음 Docker가 컨테이너를 자동 재시작하도록 한다.
+install -d /etc/systemd/system/docker.service.d
+cat > /etc/systemd/system/docker.service.d/mysql-data.conf <<'UNIT'
+[Unit]
+RequiresMountsFor=/srv/mysql
+
+[Service]
+ExecStartPre=/usr/bin/mountpoint -q /srv/mysql
+UNIT
+systemctl daemon-reload

@@ -1,0 +1,6 @@
+# Canonical SSM Parameter Store에서 2026-11-08 확인한 서울 리전 AMI.
+# 다른 리전을 사용하거나 이미지를 갱신할 때는 다시 조회한다.
+ubuntu_ami_id = "ami-05b2d28c4a1614552"
+
+# HTTP는 전체 IPv4에서 접속할 수 있도록 공개한다.
+http_allowed_cidrs = ["0.0.0.0/0"]

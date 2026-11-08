@@ -1,0 +1,58 @@
+name: community-search-mysql
+
+services:
+  mysql:
+    # 같은 이미지로 실험을 반복하도록 버전과 amd64 이미지 다이제스트를 고정한다.
+    image: mysql:8.4.13@sha256:72c368d898861f3b3a07af0e6d690400f44f048799ed46822783d9224cc2c86d
+    platform: linux/amd64
+    container_name: community-search-mysql
+    restart: unless-stopped
+    stop_grace_period: 60s
+    environment:
+      MYSQL_DATABASE: ${DB_NAME:-community_search}
+      MYSQL_USER: ${DB_USERNAME:-community_search}
+      MYSQL_PASSWORD_FILE: /run/secrets/mysql_password
+      MYSQL_ROOT_PASSWORD_FILE: /run/secrets/mysql_root_password
+      MYSQL_ROOT_HOST: localhost
+      TZ: UTC
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_0900_ai_ci
+      - --mysqlx=OFF
+    ports:
+      # MySQL EC2의 사설 IP에만 바인딩한다. 보안 그룹에서도 백엔드만 허용한다.
+      - "${MYSQL_BIND_IP:?MySQL EC2의 사설 IPv4 주소를 지정하세요}:3306:3306"
+    volumes:
+      - type: bind
+        source: /srv/mysql/data
+        target: /var/lib/mysql
+        bind:
+          create_host_path: false
+    secrets:
+      - mysql_password
+      - mysql_root_password
+    healthcheck:
+      # 서버 응답뿐 아니라 실제 DB와 앱 계정의 접속까지 확인한다.
+      test:
+        - CMD-SHELL
+        - >-
+          MYSQL_PWD="$$(cat /run/secrets/mysql_password)"
+          mysql --protocol=TCP --host=127.0.0.1
+          --user="$${MYSQL_USER}" --database="$${MYSQL_DATABASE}"
+          --execute='SELECT 1' >/dev/null 2>&1
+      interval: 10s
+      timeout: 5s
+      start_period: 60s
+      retries: 12
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
+# Parameter Store 조회 단계에서 준비할 파일을 읽는다. 비밀번호 값은 YAML에 적지 않는다.
+secrets:
+  mysql_password:
+    file: ${MYSQL_PASSWORD_FILE:?DB 비밀번호 파일 경로를 지정하세요}
+  mysql_root_password:
+    file: ${MYSQL_ROOT_PASSWORD_FILE:?MySQL root 비밀번호 파일 경로를 지정하세요}

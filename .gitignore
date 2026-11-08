@@ -55,3 +55,17 @@ logs/
 
 ### OS ###
 .DS_Store
+
+
+### Terraform ###
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+*.tfvars
+**/backend.hcl
+infra/terraform/bootstrap/backend.tf
+
+### 검색 실험용 실제 실행 설정 ###
+deploy/search/*.runtime.env
+/deploy/search/frontend/

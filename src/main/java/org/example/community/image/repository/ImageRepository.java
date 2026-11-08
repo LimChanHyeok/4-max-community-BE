@@ -12,6 +12,8 @@ import java.util.Optional;
 
 public interface ImageRepository extends JpaRepository<Image, Long> {
 
+    boolean existsByImageUrl(String imageUrl);
+
     // 기존 연결 이미지 조회용
     Optional<Image> findByImageTypeAndReferenceId(ImageType imageType, Long referenceId);
 

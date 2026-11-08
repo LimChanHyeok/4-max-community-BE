@@ -41,6 +41,10 @@ public class PublicEndpointMatcher {
             return true;
         }
 
+        if ("GET".equals(method) && uri.startsWith("/images/public/")) {
+            return true;
+        }
+
         return PUBLIC_ENDPOINTS.contains(
                 new PublicEndpoint(method, uri)
         );
