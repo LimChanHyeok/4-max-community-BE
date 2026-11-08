@@ -68,7 +68,21 @@ sudo docker logs --tail 100 community-search-mysql
 
 기존 `/posts`, `/auth`, `/users`, `/health` 경로를 그대로 전달한다. Nginx에는 응답 캐시를 사용하지 않고 전체 처리 시간과 백엔드 응답 시간을 기록한다. 백엔드 컨테이너 IP가 바뀌면 Docker DNS를 통해 다시 조회한다.
 
-### 실행 설정과 비밀값
+### 같은 주소에서 프론트 제공하기
+
+Nginx는 `/`에서 프론트 화면을 제공하고 `/api/` 요청은 앞부분을 제거해 백엔드로 전달한다. 예를 들어 브라우저가 `/api/posts?size=10`을 호출하면 백엔드는 `/posts?size=10`을 받는다. 프론트가 불러오는 `/config.js`는 Nginx에서 제공한다.
+
+프론트 저장소의 검토한 커밋에서 아래 공개 파일만 추려, 백엔드 EC2의 `backend.compose.yaml` 옆 `frontend/`에 배치한다. 저장소 전체나 환경 파일을 웹 디렉터리에 복사하지 않는다.
+
+```bash
+git archive --format=tar -o /tmp/community-search-frontend.tar HEAD html css js component public requests utils favicon.ico
+```
+
+아카이브를 `frontend/`에 풀고 기존 실행 명령에서 `-f backend.compose.yaml -f frontend.compose.yaml`을 함께 지정한다. 기본 Compose 파일만 지정해도 백엔드 API와 헬스체크를 검증할 수 있다.
+
+이미지 키는 `/api/images/public/` 아래에서 조회한다. 검색 DB에 등록된 이미지라면 백엔드가 5분 동안 유효한 S3 URL로 안내한다. 버킷은 비공개로 유지하며 기존 이미지 업로드 방식은 그대로 사용한다.
+
+
 
 `backend.env.example`은 비밀값을 제외한 설정 예시다. 실제 파일은 서버에 `backend.runtime.env`로 준비하고, MySQL 사설 IP와 필요한 프론트 출처를 반영한다. 실제 실행 파일은 Git에서 제외한다.
 

@@ -68,3 +68,4 @@ infra/terraform/bootstrap/backend.tf
 
 ### 검색 실험용 실제 실행 설정 ###
 deploy/search/*.runtime.env
+/deploy/search/frontend/

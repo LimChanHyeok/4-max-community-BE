@@ -1,0 +1,10 @@
+services:
+  nginx:
+    volumes:
+      # 프론트 화면도 제공할 때만 정적 파일 디렉터리를 연결한다.
+      - type: bind
+        source: ./frontend
+        target: /srv/community-frontend
+        read_only: true
+        bind:
+          create_host_path: false
