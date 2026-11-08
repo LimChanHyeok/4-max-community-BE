@@ -1,9 +1,9 @@
 output "backend" {
   value = {
     instance_id = aws_instance.backend.id
-    public_ip   = aws_instance.backend.public_ip
+    public_ip   = aws_eip.backend.public_ip
     private_ip  = aws_instance.backend.private_ip
-    api_url     = "http://${aws_instance.backend.public_ip}"
+    api_url     = "https://${aws_eip.backend.public_ip}"
   }
 }
 

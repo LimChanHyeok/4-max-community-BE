@@ -1,0 +1,19 @@
+services:
+  nginx:
+    ports:
+      - "443:443"
+    volumes:
+      - type: bind
+        source: /var/lib/community-search/nginx/https.conf
+        target: /etc/nginx/search/server.conf
+        read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: /etc/letsencrypt
+        target: /etc/letsencrypt
+        read_only: true
+        bind:
+          create_host_path: false
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1:8081/health/ready"]

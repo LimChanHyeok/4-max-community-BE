@@ -62,9 +62,9 @@ sudo docker logs --tail 100 community-search-mysql
 
 ## 백엔드와 Nginx
 
-백엔드 EC2에서는 `backend.compose.yaml`과 `nginx/default.conf`를 함께 사용한다. 외부에는 Nginx의 80번 포트만 열고, 백엔드의 8080번 포트는 Docker 내부 네트워크에서 사용한다.
+백엔드 EC2에서는 `backend.compose.yaml`과 `nginx/default.conf`를 함께 사용한다. 외부에는 Nginx의 80·443번 포트를 열고, 백엔드의 8080번 포트는 Docker 내부 네트워크에서 사용한다.
 
-`요청 → Nginx:80 → backend:8080 → MySQL EC2 사설 IP:3306`
+`HTTPS 요청 → Nginx:443 → backend:8080 → MySQL EC2 사설 IP:3306`
 
 기존 `/posts`, `/auth`, `/users`, `/health` 경로를 그대로 전달한다. Nginx에는 응답 캐시를 사용하지 않고 전체 처리 시간과 백엔드 응답 시간을 기록한다. 백엔드 컨테이너 IP가 바뀌면 Docker DNS를 통해 다시 조회한다.
 
@@ -96,6 +96,24 @@ git archive --format=tar -o /tmp/community-search-frontend.tar HEAD html css js 
 서버 최초 부팅 시 DB 비밀번호는 `/community/search/db/password`, JWT 키는 `/community/search/backend/jwt-secret`에서 읽어 위 파일로 저장한다. 서버 생성 전에 두 값을 등록해야 한다.
 
 백엔드는 UID·GID `10001`의 앱 계정으로 실행한다. 두 비밀값 파일은 서버에서 소유자 `root`, 그룹 `10001`, 권한 `640`으로 준비하고, 보관 디렉터리는 root 소유·권한 `700`을 사용한다. Compose가 파일을 `/run/secrets/DB_PASSWORD`, `/run/secrets/JWT_SECRET`에 마운트하고 Spring Boot가 `configtree:`로 읽는다. 비밀번호와 JWT 키를 일반 환경설정 파일에 적지 않는다.
+
+### 고정 IP에서 HTTPS 제공하기
+
+1. Terraform으로 Elastic IP와 443번 인바운드 규칙을 적용한다. Terraform의 `backend.public_ip`를 서버 실행 환경의 `SEARCH_PUBLIC_IP`로 설정한다.
+2. 백엔드 EC2에서 `/var/www/letsencrypt`를 준비하고 기본 Compose와 프론트 오버레이로 HTTP Nginx를 시작한다. `/.well-known/acme-challenge/`가 외부에서 접근 가능해야 한다.
+3. EC2에서 Certbot 5.4 이상을 설치하고 아래와 같이 IP 인증서를 발급한다. 실제 발급 전에 `--dry-run`을 붙여 HTTP 검증 경로를 확인한다.
+
+```bash
+sudo /snap/bin/certbot certonly --non-interactive --agree-tos --register-unsafely-without-email \
+  --preferred-profile shortlived --webroot -w /var/www/letsencrypt \
+  --cert-name community-search --ip-address "$SEARCH_PUBLIC_IP"
+```
+
+4. `nginx/https.conf.template`의 `__SEARCH_PUBLIC_IP__`를 실제 고정 IP로 치환해 `/var/lib/community-search/nginx/https.conf`에 저장한다. `backend.runtime.env`의 `APP_CORS_ALLOWED_ORIGIN`을 고정 IP의 HTTPS 주소로 바꾸고 `APP_COOKIE_SECURE=true`를 추가한다.
+5. Compose 실행 시 기존 파일 뒤에 `-f https.compose.yaml`을 붙인다. Nginx는 발급된 인증서를 읽어 443에서 서비스하며 80에서는 HTTP 인증 경로를 제공하고 나머지 요청은 고정 IP의 HTTPS로 안내한다.
+6. `nginx/reload-after-renewal.sh`를 `/etc/letsencrypt/renewal-hooks/deploy/community-search-nginx.sh`에 권한 `755`로 설치한다. `snap.certbot.renew.timer`가 활성화되었는지 확인하고 `sudo /snap/bin/certbot renew --cert-name community-search --dry-run --run-deploy-hooks`로 갱신과 Nginx 재로드를 검증한다.
+
+인증서와 키는 EC2의 `/etc/letsencrypt`에 저장된다. Nginx 컨테이너는 갱신된 파일을 읽기 전용으로 마운트하고, 갱신 후 검증을 거쳐 설정을 다시 읽는다.
 
 ### 상태 확인과 배포 연결
 

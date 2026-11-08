@@ -34,7 +34,7 @@ variable "ubuntu_ami_id" {
 }
 
 variable "http_allowed_cidrs" {
-  description = "Nginx HTTP 접속을 허용할 IPv4 CIDR 목록."
+  description = "Nginx HTTP와 HTTPS 접속을 허용할 IPv4 CIDR 목록."
   type        = set(string)
   default     = ["0.0.0.0/0"]
 
