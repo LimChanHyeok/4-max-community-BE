@@ -1,0 +1,34 @@
+server {
+    listen 80 default_server;
+    server_name _;
+
+    location ^~ /.well-known/acme-challenge/ {
+        root /var/www/letsencrypt;
+        default_type text/plain;
+        try_files $uri =404;
+    }
+
+    location / {
+        return 308 https://__SEARCH_PUBLIC_IP__$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl default_server;
+    server_name __SEARCH_PUBLIC_IP__;
+    ssl_certificate /etc/letsencrypt/live/community-search/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/community-search/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+
+    include /etc/nginx/search/application.inc;
+}
+
+# 공개 HTTP 리다이렉트와 별개로 컨테이너 내부의 준비 상태를 확인한다.
+server {
+    listen 127.0.0.1:8081;
+
+    location = /health/ready {
+        proxy_set_header Host $host;
+        proxy_pass http://community_backend;
+    }
+}

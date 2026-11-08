@@ -79,14 +79,12 @@ MySQL 데이터는 별도 EBS 리소스로 관리하고 `prevent_destroy`를 적
 
 부팅 시 지정된 EBS 볼륨이 연결될 때까지 기다리고, 파일시스템이 없는 새 볼륨에만 ext4를 생성한다. 기존 ext4 데이터는 그대로 마운트한다. 재시작 시에도 같은 UUID로 마운트한다.
 
-공인 IP는 인스턴스 중지·시작 후 달라질 수 있다. 실행 전 Terraform 출력에서 현재 주소를 확인한다. T3a의 CPU 크레딧 모드는 AWS 기본값을 사용하므로, 지속 부하 측정 시 크레딧과 추가 요금을 확인한다.
+백엔드에는 Elastic IP를 연결한다. 공개 접속 주소는 Terraform 출력 `backend.api_url`에서 확인한다. T3a의 CPU 크레딧 모드는 AWS 기본값을 사용하므로, 지속 부하 측정 시 크레딧과 추가 요금을 확인한다.
 
 ## 이어서 구성할 것
 
-MySQL·백엔드 Compose와 Nginx 설정, 최초 부팅의 Parameter Store 조회·파일 저장을 작성했다. 사용자가 Parameter Store에 3개 값을 등록했고 이름·타입·암호화 키만 확인했다. 값 내용은 조회하지 않았다. 상태 저장용 S3를 생성하고 bootstrap 상태를 `bootstrap/terraform.tfstate`로 이전했다. 서버용 backend도 같은 버킷의 `search/terraform.tfstate`에 연결했다. 서버 환경은 검토한 plan으로 26개 리소스를 생성했다. EC2 2대의 cloud-init 정상 종료·SSM Online·Docker 설치·MySQL EBS 마운트·비밀값 파일 권한을 확인했다. 비밀값 내용은 출력하지 않았다. HTTP 접속은 전체 IPv4 허용으로 구성했으며, 애플리케이션 컨테이너 배포와 HTTPS 인증서 발급은 아직 수행하지 않았다. ECR 업로드와 서버 배포 자동화는 후속 CI·CD 작업에서 연결하며, EBS·비밀번호 파일 확인과 Compose 실행도 CD 단계에서 처리한다.
+MySQL·백엔드 Compose와 Nginx 설정, 최초 부팅의 Parameter Store 조회·파일 저장을 작성했다. 사용자가 Parameter Store에 3개 값을 등록했고 이름·타입·암호화 키만 확인했다. 값 내용은 조회하지 않았다. 상태 저장용 S3를 생성하고 bootstrap 상태를 `bootstrap/terraform.tfstate`로 이전했다. 서버용 backend도 같은 버킷의 `search/terraform.tfstate`에 연결했다. 서버 환경은 검토한 plan으로 26개 리소스를 생성했다. EC2 2대의 cloud-init 정상 종료·SSM Online·Docker 설치·MySQL EBS 마운트·비밀값 파일 권한을 확인했다. 비밀값 내용은 출력하지 않았다. 검색 브랜치 CI에서 백엔드 이미지를 ECR에 발행하고, SSM을 통해 컨테이너를 배포한다. 후속 CD에서는 EBS·비밀번호 파일 확인과 Compose 실행을 자동화한다.
 
-현재 요청 경로는 HTTP 80번 포트만 구성했다. HTTPS는 추후 Nginx에서 처리하는 항목으로 남긴다. 적용 전에 인증서 발급·갱신 방식과 도메인 사용 여부를 정하고, Nginx·Compose·보안 그룹의 443 설정을 함께 반영하며, HTTPS도 웹 접속을 전체 허용한다.
+Terraform은 백엔드 Elastic IP와 Nginx에 연결하는 80·443번 보안 그룹 규칙을 관리한다. 인증서 발급과 갱신은 백엔드 EC2의 Certbot이 담당한다. Nginx는 80번에서 HTTP 인증 경로를 유지하고, 일반 요청을 443번의 HTTPS 주소로 안내한다. 상세 절차는 [서버 실행 설정](../../deploy/search/README.md#고정-ip에서-https-제공하기)을 참고한다.
 
-도메인 없이 IP로 접속하는 조건에서도 [Let’s Encrypt IP 인증서](https://letsencrypt.org/2026/03/11/shorter-certs-certbot.html)를 사용할 수 있음을 확인했다. 서버 공인 IP가 정해진 뒤 Certbot의 webroot 방식으로 발급하고 Nginx에 연결하는 흐름을 검토한다. IP 인증서는 단기 인증서이므로 자동 갱신과 갱신 후 Nginx 재적용을 함께 구성하며, HTTPS를 적용할 때 쿠키의 Secure 설정도 맞춘다. 현재는 인증서 발급·443 설정을 적용하지 않았다.
-
-프론트는 기존 HTML·JS를 백엔드 EC2의 Nginx에서 함께 제공하는 방향으로 정했다. 프론트 저장소의 `utils/function.js`에 남은 예전 API·CDN 기본 주소, `config.js`의 이미지 포함·페이지 로딩, Nginx의 정적 파일과 `/api` 분리를 별도 작업에서 맞춘다. 프론트 원본 코드는 아직 변경하지 않았다.
+프론트의 HTML·JS는 백엔드 EC2의 Nginx에서 제공한다. 브라우저는 같은 HTTPS 출처의 `/api`로 API를 호출한다.

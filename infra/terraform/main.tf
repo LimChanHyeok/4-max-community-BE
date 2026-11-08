@@ -76,6 +76,16 @@ resource "aws_vpc_security_group_ingress_rule" "http" {
   to_port           = 80
 }
 
+resource "aws_vpc_security_group_ingress_rule" "https" {
+  for_each = var.http_allowed_cidrs
+
+  security_group_id = aws_security_group.backend.id
+  cidr_ipv4         = each.value
+  ip_protocol       = "tcp"
+  from_port         = 443
+  to_port           = 443
+}
+
 resource "aws_security_group" "mysql" {
   name        = "${var.name_prefix}-mysql"
   description = "MySQL access from the backend private network interface"
@@ -157,6 +167,15 @@ resource "aws_instance" "backend" {
     aws_iam_role_policy_attachment.ssm,
     aws_iam_role_policy.parameter_store
   ]
+
+  tags = { Name = "${var.name_prefix}-backend" }
+}
+
+resource "aws_eip" "backend" {
+  domain   = "vpc"
+  instance = aws_instance.backend.id
+
+  depends_on = [aws_internet_gateway.search]
 
   tags = { Name = "${var.name_prefix}-backend" }
 }

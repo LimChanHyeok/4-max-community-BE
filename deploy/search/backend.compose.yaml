@@ -54,6 +54,9 @@ services:
         read_only: true
         bind:
           create_host_path: false
+      - ./nginx/application.inc:/etc/nginx/search/application.inc:ro
+      - ./nginx/http.conf:/etc/nginx/search/server.conf:ro
+      - /var/www/letsencrypt:/var/www/letsencrypt:ro
     healthcheck:
       # Nginx를 거쳐 백엔드와 DB 연결까지 확인한다.
       test: ["CMD", "wget", "-q", "-T", "3", "-O", "/dev/null", "http://127.0.0.1/health/ready"]
