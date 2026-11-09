@@ -2,7 +2,7 @@
 
 ## MySQL
 
-MySQL EC2의 실행 설정은 `mysql.compose.yaml`로 관리한다. 설정 전달과 Compose 실행은 후속 GitHub Actions CD에서 AWS SSM을 통해 자동화한다. 현재 CD는 아직 연결하지 않았다.
+MySQL EC2의 실행 설정은 `mysql.compose.yaml`로 관리한다. 검색 백엔드를 배포할 때는 이미 준비된 MySQL에 연결한다.
 
 | 항목 | 설정 |
 |---|---|
@@ -24,20 +24,20 @@ Terraform의 초기 설정이 끝나 Docker·Compose가 설치되고 `/srv/mysql
 
 비밀번호 파일은 root 소유·권한 `600`으로 준비하고, 보관 디렉터리는 root만 접근하도록 권한 `700`을 사용한다. 파일은 재부팅 후에도 유지되는 서버 루트 볼륨의 `/var/lib/community-search/mysql/`에 보관하고 Git에 저장하지 않는다. 최초 조회·저장은 서버 초기 설정에 연결했다. 재부팅마다 조회하지 않는다.
 
-### CD에서 처리할 작업
+### MySQL 실행 설정을 반영할 때
 
-별도 수동 실행 스크립트를 두지 않고, 후속 CD에서 아래 순서를 실행한다.
+MySQL 실행 설정을 변경할 때는 아래 순서로 적용한다.
 
 1. 버전 관리된 Compose 파일을 MySQL 서버에 전달한다.
 2. EBS 마운트와 비밀번호 파일을 확인하고 `/srv/mysql/data` 디렉터리를 준비한다.
 3. `MYSQL_BIND_IP`에 MySQL 사설 IP를, `MYSQL_PASSWORD_FILE`·`MYSQL_ROOT_PASSWORD_FILE`에 위 파일 경로를 전달한다.
 4. Compose 설정 검증 후 `up --detach --wait`로 변경을 적용하고 DB 준비 완료를 확인한다.
 
-CD의 사전 확인·실행 명령은 하나라도 실패하면 다음 단계로 진행하지 않도록 구성한다. MySQL 설정이 바뀐 경우에만 MySQL 배포를 실행하며, 백엔드 배포 때마다 DB 컨테이너를 다시 만들지 않는다. 실제 앱 계정의 `SELECT 1` 성공 여부는 Compose 헬스체크에서 확인한다.
+사전 확인과 실행 단계가 성공하면 다음 단계로 진행한다. MySQL 설정이 바뀔 때 이 절차를 사용한다. 실제 앱 계정의 `SELECT 1` 성공 여부는 Compose 헬스체크에서 확인한다.
 
 ### 초기화와 재시작
 
-최초 배포와 실행 설정 변경은 CD에서 Compose를 실행해 반영한다. 이후 컨테이너 종료·서버 재부팅에 따른 자동 재시작은 Compose의 `restart: unless-stopped`가 담당한다. 별도 MySQL 재시작 스크립트나 서비스는 만들지 않는다. 직접 중지한 컨테이너는 자동으로 다시 시작하지 않는다.
+최초 배포와 실행 설정 변경은 Compose를 실행해 반영한다. 이후 컨테이너 종료·서버 재부팅에 따른 자동 재시작은 Compose의 `restart: unless-stopped`가 담당한다. 별도 MySQL 재시작 스크립트나 서비스는 만들지 않는다. 직접 중지한 컨테이너는 자동으로 다시 시작하지 않는다.
 
 MySQL EC2의 초기 설정에서 Docker 서비스에 `/srv/mysql` 마운트 의존성과 마운트 확인을 추가한다. 재부팅 시 EBS가 마운트된 뒤 Docker가 시작돼야 기존 데이터로 컨테이너를 올릴 수 있다.
 
@@ -119,7 +119,17 @@ sudo /snap/bin/certbot certonly --non-interactive --agree-tos --register-unsafel
 
 백엔드 헬스체크는 `/health/ready`에서 DB 연결을 확인한다. Nginx는 최초 Compose 실행 시 백엔드가 준비된 뒤 시작하며, Nginx 헬스체크도 같은 요청을 프록시해 전체 경로를 확인한다. 두 컨테이너 모두 `unless-stopped`로 재시작한다.
 
-후속 CD에서 이미지 로그인·다운로드, 실행 설정과 비밀값 준비, Nginx 설정 검증 후 Compose 변경 적용을 연결한다. 별도 수동 실행 스크립트는 만들지 않는다.
+### GitHub Actions에서 검색 버전 배포하기
+
+Terraform으로 레포별 CD OIDC 역할과 SSM 문서를 적용한다. 기존 EC2의 HTTPS 배포가 준비되어 있어야 한다.
+
+- 백엔드는 `search-enhancement` push의 CI에서 ECR 이미지 발행에 성공하면 해당 커밋을 배포한다.
+- 프론트는 별도 프론트 저장소의 `main` push에서 JavaScript와 정적 파일을 검사한 뒤 해당 커밋을 배포한다.
+- EC2가 중지되어 있으면 배포를 건너뛰고 실행 요약에 남긴다. 서버를 켠 뒤 해당 GitHub Actions 실행을 재실행하면 그 커밋을 배포한다.
+
+SSM 문서는 실행 중인 Compose의 설정을 이어받아 새 배포 디렉터리를 만든다. 백엔드 배포는 ECR 다이제스트를 지정하고 현재 프론트를 재사용한다. 프론트 배포는 해당 SHA의 공개 정적 파일을 내려받아 Nginx를 재생성한다. 양쪽 모두 서버의 같은 파일 잠금을 기다린 뒤 현재 실행 버전을 확인하므로, 동시에 요청해도 직전 배포 결과를 이어받는다.
+
+Compose 헬스체크와 서버 내부 HTTPS 검증에 실패하면 이전 컨테이너 구성을 다시 올린다. GitHub 러너도 마지막에 공개 HTTPS 화면과 API를 확인한다. DB 스키마를 바꾸는 버전의 복구 절차는 별도로 검토한다.
 
 - [Spring Boot의 파일 기반 비밀값 설정](https://docs.spring.io/spring-boot/reference/features/external-config.html#features.external-config.files.configtree)
 - [Nginx의 백엔드 주소 재조회](https://nginx.org/en/docs/http/ngx_http_upstream_module.html#server)

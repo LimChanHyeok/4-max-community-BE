@@ -16,7 +16,7 @@ on:
 
 concurrency:
   group: search-ci-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   verify:
@@ -101,3 +101,13 @@ jobs:
           fi
 
           printf 'ECR 이미지: %s\n' "$IMAGE_URI" >> "$GITHUB_STEP_SUMMARY"
+
+
+  deploy:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/search-enhancement' && github.repository == 'LimChanHyeok/4-max-community-BE'
+    permissions:
+      id-token: write
+    uses: ./.github/workflows/search-cd.yml
+    with:
+      backend_sha: ${{ github.sha }}
