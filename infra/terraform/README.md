@@ -83,7 +83,7 @@ MySQL 데이터는 별도 EBS 리소스로 관리하고 `prevent_destroy`를 적
 
 ## 이어서 구성할 것
 
-MySQL·백엔드 Compose와 Nginx 설정, 최초 부팅의 Parameter Store 조회·파일 저장을 작성했다. 사용자가 Parameter Store에 3개 값을 등록했고 이름·타입·암호화 키만 확인했다. 값 내용은 조회하지 않았다. 상태 저장용 S3를 생성하고 bootstrap 상태를 `bootstrap/terraform.tfstate`로 이전했다. 서버용 backend도 같은 버킷의 `search/terraform.tfstate`에 연결했다. 서버 환경은 검토한 plan으로 26개 리소스를 생성했다. EC2 2대의 cloud-init 정상 종료·SSM Online·Docker 설치·MySQL EBS 마운트·비밀값 파일 권한을 확인했다. 비밀값 내용은 출력하지 않았다. 검색 브랜치 CI에서 백엔드 이미지를 ECR에 발행하고, SSM을 통해 컨테이너를 배포한다. 후속 CD에서는 EBS·비밀번호 파일 확인과 Compose 실행을 자동화한다.
+MySQL·백엔드 Compose와 Nginx 설정, 최초 부팅의 Parameter Store 조회·파일 저장을 작성했다. 사용자가 Parameter Store에 3개 값을 등록했고 이름·타입·암호화 키만 확인했다. 값 내용은 조회하지 않았다. 상태 저장용 S3를 생성하고 bootstrap 상태를 `bootstrap/terraform.tfstate`로 이전했다. 서버용 backend도 같은 버킷의 `search/terraform.tfstate`에 연결했다. 서버 환경은 검토한 plan으로 26개 리소스를 생성했다. EC2 2대의 cloud-init 정상 종료·SSM Online·Docker 설치·MySQL EBS 마운트·비밀값 파일 권한을 확인했다. 비밀값 내용은 출력하지 않았다. 검색 브랜치 CI에서 백엔드 이미지를 ECR에 발행한다. 백엔드와 프론트 CD는 각 저장소와 브랜치에 제한한 OIDC 역할로 백엔드 EC2 한 대에 해당 배포용 SSM 문서를 실행한다. MySQL 초기화와 배포 설정은 별도로 관리한다.
 
 Terraform은 백엔드 Elastic IP와 Nginx에 연결하는 80·443번 보안 그룹 규칙을 관리한다. 인증서 발급과 갱신은 백엔드 EC2의 Certbot이 담당한다. Nginx는 80번에서 HTTP 인증 경로를 유지하고, 일반 요청을 443번의 HTTPS 주소로 안내한다. 상세 절차는 [서버 실행 설정](../../deploy/search/README.md#고정-ip에서-https-제공하기)을 참고한다.
 
