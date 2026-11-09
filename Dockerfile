@@ -13,9 +13,6 @@ RUN apt-get update \
 
 COPY --chown=app:app build/libs/app.jar app.jar
 
-# 배포환경에서는 S3를 쓰기 때문에 로컬에서만 사용한다.
-RUN mkdir -p /app/uploads && chown -R app:app /app/uploads
-
 USER app
 
 EXPOSE 8080
