@@ -55,8 +55,19 @@ jobs:
           fi
           cp "$JAR_FILE" build/libs/app.jar
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
       - name: Build Docker image
-        run: docker build --platform linux/amd64 --tag community-backend:search-ci .
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/amd64
+          tags: community-backend:search-ci
+          load: true
+          cache-from: type=gha,scope=community-search-backend
+          cache-to: type=gha,scope=community-search-backend,mode=max
 
       - name: Get AWS credentials for ECR
         if: github.event_name == 'push' && github.repository == 'LimChanHyeok/4-max-community-BE'
