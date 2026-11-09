@@ -9,7 +9,7 @@ import java.util.Optional;
 
 public interface PostRepositoryCustom {
 
-    List<PostSummaryResponse> findPostsByCursor(Long cursor, int limit);
+    List<PostSummaryResponse> findPostsByCursor(Long cursor, int limit, List<String> searchTerms);
 
     Optional<PostDetailResponse> findPostDetailById(Long postId, Long loginUserId);
 

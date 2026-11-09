@@ -56,12 +56,15 @@ public class PostService {
     private final ObjectMapper objectMapper;
 
     @Transactional(readOnly = true)
-    public PostListResponse getPosts(String cursor, Integer size) {
+    public PostListResponse getPosts(String cursor, Integer size, String keyword) {
         /**
          * 밑에 작성한 함수로서 null이면 DEFAULT_SIZE 반환
          * 1보다 작거나 MAX_SIZE보다 크면 BAD_REQUEST 예외 던짐
          */
         int validatedSize = validateSize(size);
+        List<String> searchTerms = keyword == null || keyword.isBlank()
+                ? List.of()
+                : List.of(keyword.strip().split("\\p{javaWhitespace}+"));
 
         /**
          * 클라이언트가 보낸 cursor 문자열을 실제 게시글 id로 바꾸는 부분
@@ -73,7 +76,7 @@ public class PostService {
          * 10개를 요청했지만 11개를 조회하면서 뒤에 더있다는것을 알림
          */
         List<PostSummaryResponse> fetchedPosts =
-                postRepository.findPostsByCursor(decodedCursor, validatedSize + 1);
+                postRepository.findPostsByCursor(decodedCursor, validatedSize + 1, searchTerms);
         /**
          * 나온 size로 hasNext 계산
          */
