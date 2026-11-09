@@ -39,7 +39,16 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
 
     // 커서를 이용한 게시글 목록 조회를 위한 메소드
     @Override
-    public List<PostSummaryResponse> findPostsByCursor(Long cursor, int limit) {
+    public List<PostSummaryResponse> findPostsByCursor(Long cursor, int limit, List<String> searchTerms) {
+        BooleanBuilder conditions = new BooleanBuilder();
+        if (cursor != null) {
+            conditions.and(post.id.lt(cursor));
+        }
+        // 검색어마다 제목 또는 본문에 포함되는지 확인하고, 모든 조건을 만족한 글만 조회한다.
+        for (String term : searchTerms) {
+            conditions.and(post.title.contains(term).or(post.content.contains(term)));
+        }
+
         return queryFactory
                 // Projections -> 엔티티 전체가 아닌 필요한 필드만 선택해 조회할 수 있도록 지원하는 데이터 조회 방식, 그 중 DTO 프로젝션 사용
                 // constructor -> 생성자를 이용
@@ -65,8 +74,7 @@ public class PostRepositoryImpl implements PostRepositoryCustom {
                         writerProfileImage.imageType.eq(ImageType.USER),
                         writerProfileImage.referenceId.eq(user.id)
                 )
-                //where절에 조건이 하나라서 BooleanBuilder를 안씀, lt는 작다(<) 비교
-                .where(cursor != null ? post.id.lt(cursor) : null)
+                .where(conditions)
                 .orderBy(post.id.desc())
                 .limit(limit)
                 .fetch();

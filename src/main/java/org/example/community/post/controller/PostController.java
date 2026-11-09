@@ -26,12 +26,13 @@ public class PostController {
     @GetMapping
     public ResponseEntity<ApiResponse<PostListResponse>> getPosts(
             /**
-             * 여기서 cursor와 size는 없을 수 있기 때문에 required=false로 하였다.
+             * 검색어와 페이지 조건은 선택적으로 받는다.
              */
             @RequestParam(required = false) String cursor,
-            @RequestParam(required = false) Integer size
+            @RequestParam(required = false) Integer size,
+            @RequestParam(required = false) String keyword
     ) {
-        PostListResponse response = postService.getPosts(cursor, size);
+        PostListResponse response = postService.getPosts(cursor, size, keyword);
 
         return ResponseEntity.ok(
                 ApiResponse.success("게시글 목록 조회에 성공했습니다.", response)
