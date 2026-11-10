@@ -88,6 +88,6 @@ terraform -chdir=infra/terraform output -json monitoring | jq -r .grafana_forwar
 
 - **Community Search → 커뮤니티 검색 실험** 대시보드에서 두 EC2의 CPU·메모리, MySQL EC2의 NVMe 디스크 읽기·쓰기, HikariCP 연결 대기, 게시글 목록 API P95를 확인한다. 목록 API 패널은 같은 경로의 일반 목록과 검색 요청을 함께 집계한다. 검색 요청만의 응답시간은 k6 결과로 비교한다.
 - Grafana에서 백엔드·Nginx·MySQL 컨테이너 로그가 들어오는지 확인한다. MySQL 슬로우 쿼리 로그는 별도 설정으로 수집할 때 추가한다.
-- 모니터링 EC2에서 `free -h`, `sudo docker stats --no-stream`, `sudo docker inspect --format '{{.Name}} {{.RestartCount}} {{.State.OOMKilled}}' $(sudo docker ps -aq --filter label=com.docker.compose.project=community-search-monitoring)`로 메모리 여유와 재시작을 확인한다. 1 GiB에서 안정적으로 동작하는지 확인한 뒤 본시험을 진행한다.
+- 모니터링 EC2에서 `free -h`, `sudo docker stats --no-stream`, `sudo docker inspect --format '{{.Name}} {{.RestartCount}} {{.State.OOMKilled}}' $(sudo docker ps -aq --filter label=com.docker.compose.project=community-search-monitoring)`로 메모리 여유와 재시작을 확인한다. 현재 EC2는 메모리 2GiB이며 컨테이너 상한은 Grafana 768MiB, Prometheus·Loki 각각 256MiB다. 상한의 합은 1,280MiB로 운영체제와 기타 프로세스의 여유를 남긴다. 상한은 예약량이 아니므로 실제 사용량과 제한 도달 여부를 함께 확인한 뒤 본시험을 진행한다.
 
 설정 파일을 갱신한 뒤에는 같은 Compose 명령으로 컨테이너를 다시 만든다. 기존 데이터 볼륨을 재사용한다. Prometheus와 Loki는 72시간을 보관하고, Prometheus에는 TSDB 크기 제한도 둔다. 수집 데이터는 EC2의 Docker 볼륨에 저장된다. 새 노트북에서는 SSM 접속을 다시 열면 된다. 새 EC2에서도 레포의 Compose·프로비저닝 파일로 같은 대시보드를 만들 수 있으며, 이전 시계열과 로그를 옮기려면 저장 볼륨을 별도로 이전해야 한다.
