@@ -1,6 +1,7 @@
 package org.example.community.global.auth;
 
 import jakarta.servlet.http.HttpServletRequest;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.util.Set;
@@ -29,11 +30,20 @@ public class PublicEndpointMatcher {
             new PublicEndpoint("GET", "/health/ready")
     );
 
+    @Value("${management.server.port:0}")
+    private int managementPort;
+
     public boolean matches(HttpServletRequest request) {
         String method = request.getMethod();
         String uri = request.getRequestURI();
 
         if ("OPTIONS".equals(method)) {
+            return true;
+        }
+
+        // 공개 HTTP 포트에서는 Prometheus 경로를 익명으로 노출하지 않는다.
+        if (managementPort > 0 && request.getLocalPort() == managementPort
+                && "GET".equals(method) && "/actuator/prometheus".equals(uri)) {
             return true;
         }
 

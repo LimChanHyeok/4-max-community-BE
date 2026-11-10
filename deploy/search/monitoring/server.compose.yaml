@@ -1,0 +1,68 @@
+name: community-search-monitoring
+
+x-logging: &logging
+  driver: local
+  options:
+    max-size: "5m"
+    max-file: "2"
+
+services:
+  prometheus:
+    image: prom/prometheus:v3.16.0
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 180MiB
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=72h
+      - --storage.tsdb.retention.size=512MB
+      - --web.enable-remote-write-receiver
+    ports:
+      - "${MONITOR_PRIVATE_IP:?모니터링 EC2 사설 IP를 지정하세요}:9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus:/prometheus
+    logging: *logging
+
+  loki:
+    image: grafana/loki:3.7.9
+    restart: unless-stopped
+    mem_limit: 256m
+    environment:
+      GOMEMLIMIT: 180MiB
+    command: ["-config.file=/etc/loki/search.yaml"]
+    ports:
+      - "${MONITOR_PRIVATE_IP:?모니터링 EC2 사설 IP를 지정하세요}:3100:3100"
+    volumes:
+      - ./loki.yaml:/etc/loki/search.yaml:ro
+      - loki:/loki
+    logging: *logging
+
+  grafana:
+    image: grafana/grafana:13.3.0
+    restart: unless-stopped
+    mem_limit: 192m
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_PASSWORD__FILE: /run/secrets/grafana_password
+      GF_USERS_ALLOW_SIGN_UP: "false"
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+    secrets:
+      - grafana_password
+    volumes:
+      - grafana:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./grafana/dashboards:/etc/grafana/dashboards:ro
+    logging: *logging
+
+volumes:
+  prometheus:
+  loki:
+  grafana:
+
+secrets:
+  grafana_password:
+    file: ${GRAFANA_PASSWORD_FILE:?Grafana 비밀번호 파일을 지정하세요}

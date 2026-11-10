@@ -1,0 +1,90 @@
+prometheus.exporter.unix "host" {
+  procfs_path    = "/host/proc"
+  sysfs_path     = "/host/sys"
+  set_collectors = ["cpu", "diskstats", "meminfo"]
+}
+
+discovery.relabel "host" {
+  targets = prometheus.exporter.unix.host.targets
+
+  rule {
+    target_label = "instance"
+    replacement  = sys.env("MONITOR_ROLE")
+  }
+}
+
+prometheus.scrape "host" {
+  targets         = discovery.relabel.host.output
+  job_name        = "search-host"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.search.receiver]
+}
+
+discovery.relabel "application" {
+  targets = [{
+    "__address__" = "backend:8081",
+    "instance"    = sys.env("MONITOR_ROLE"),
+  }]
+
+  rule {
+    source_labels = ["instance"]
+    regex         = "backend"
+    action        = "keep"
+  }
+}
+
+prometheus.scrape "application" {
+  targets         = discovery.relabel.application.output
+  job_name        = "search-backend"
+  metrics_path    = "/actuator/prometheus"
+  scrape_interval = "15s"
+  forward_to      = [prometheus.remote_write.search.receiver]
+}
+
+prometheus.remote_write "search" {
+  endpoint {
+    url = "http://" + sys.env("MONITOR_PRIVATE_IP") + ":9090/api/v1/write"
+  }
+
+  wal {
+    max_keepalive_time = "4h"
+  }
+}
+
+discovery.docker "search" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "logs" {
+  targets = []
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(community-search-backend|community-search-nginx|community-search-mysql)"
+    action        = "keep"
+  }
+
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.+)"
+    target_label  = "container"
+  }
+
+  rule {
+    target_label = "instance"
+    replacement  = sys.env("MONITOR_ROLE")
+  }
+}
+
+loki.source.docker "search" {
+  host          = "unix:///var/run/docker.sock"
+  targets       = discovery.docker.search.targets
+  relabel_rules = discovery.relabel.logs.rules
+  forward_to    = [loki.write.search.receiver]
+}
+
+loki.write "search" {
+  endpoint {
+    url = "http://" + sys.env("MONITOR_PRIVATE_IP") + ":3100/loki/api/v1/push"
+  }
+}

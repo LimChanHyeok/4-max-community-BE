@@ -1,0 +1,26 @@
+name: community-search-monitoring-agent
+
+services:
+  alloy:
+    image: grafana/alloy:v1.21.3
+    restart: unless-stopped
+    mem_limit: 160m
+    environment:
+      GOMEMLIMIT: 112MiB
+      MONITOR_PRIVATE_IP: ${MONITOR_PRIVATE_IP:?모니터링 EC2 사설 IP를 지정하세요}
+      MONITOR_ROLE: ${MONITOR_ROLE:?backend 또는 mysql을 지정하세요}
+    command: ["run", "--storage.path=/var/lib/alloy", "/etc/alloy/config.alloy"]
+    volumes:
+      - ./agent.alloy:/etc/alloy/config.alloy:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy:/var/lib/alloy
+    logging:
+      driver: local
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+volumes:
+  alloy:

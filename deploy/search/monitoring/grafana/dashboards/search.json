@@ -1,0 +1,181 @@
+{
+  "uid": "community-search",
+  "title": "커뮤니티 검색 실험",
+  "schemaVersion": 39,
+  "tags": [
+    "search"
+  ],
+  "time": {
+    "from": "now-30m",
+    "to": "now"
+  },
+  "refresh": "15s",
+  "panels": [
+    {
+      "id": 1,
+      "title": "백엔드 게시글 목록 API P95",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "search-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_requests_seconds_bucket{job=\"search-backend\",uri=\"/posts\",method=\"GET\"}[2m])))",
+          "legendFormat": "P95"
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "title": "HikariCP 연결 대기",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "search-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 0,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "hikaricp_connections_pending{job=\"search-backend\"}",
+          "legendFormat": "{{pool}}"
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "title": "EC2 CPU 사용률",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "search-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "100 * (1 - avg by (instance) (rate(node_cpu_seconds_total{job=\"search-host\",mode=\"idle\"}[2m])))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "title": "MySQL EC2 디스크 읽기·쓰기",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "search-prometheus"
+      },
+      "gridPos": {
+        "x": 12,
+        "y": 8,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "Bps"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "rate(node_disk_read_bytes_total{job=\"search-host\",instance=\"mysql\",device=~\"nvme[0-9]+n[0-9]+\"}[2m])",
+          "legendFormat": "읽기 {{device}}"
+        },
+        {
+          "refId": "B",
+          "expr": "rate(node_disk_written_bytes_total{job=\"search-host\",instance=\"mysql\",device=~\"nvme[0-9]+n[0-9]+\"}[2m])",
+          "legendFormat": "쓰기 {{device}}"
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "title": "EC2 여유 메모리",
+      "type": "timeseries",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "search-prometheus"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 16,
+        "w": 12,
+        "h": 8
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes"
+        },
+        "overrides": []
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "node_memory_MemAvailable_bytes{job=\"search-host\"}",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "title": "백엔드·Nginx·MySQL 로그",
+      "type": "logs",
+      "datasource": {
+        "type": "loki",
+        "uid": "search-loki"
+      },
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 24,
+        "h": 9
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "expr": "{container=~\"community-search-(backend|nginx|mysql)\"}"
+        }
+      ]
+    }
+  ]
+}
