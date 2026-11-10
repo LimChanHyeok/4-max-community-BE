@@ -59,7 +59,7 @@ variable "mysql_instance_type" {
 
 variable "monitoring_instance_type" {
   type    = string
-  default = "t3a.micro"
+  default = "t3a.small"
 }
 
 variable "root_volume_size" {
