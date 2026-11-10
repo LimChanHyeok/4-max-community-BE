@@ -12,6 +12,14 @@ const datasetSize = Number(__ENV.SEARCH_DATASET_SIZE || 10000);
 if (![10000, 100000, 1000000].includes(datasetSize)) {
   throw new Error('SEARCH_DATASET_SIZE는 10000, 100000, 1000000 중 하나여야 합니다.');
 }
+// 브라우저와 비교할 API 표본은 같은 시간 구간의 첫 페이지로 제한한다.
+const comparisonStartSeconds = Number(__ENV.SEARCH_BROWSER_START_SECONDS || 360);
+const comparisonSeconds = Number(__ENV.SEARCH_BROWSER_SECONDS || 180);
+if (!Number.isFinite(comparisonStartSeconds) || comparisonStartSeconds < 0
+    || !Number.isFinite(comparisonSeconds) || comparisonSeconds <= 0
+    || comparisonStartSeconds + comparisonSeconds > 600) {
+  throw new Error('API 비교 구간은 10분 시험 안의 유효한 시작·길이여야 합니다.');
+}
 const phases = [
   { name: 'warmup', seconds: 120, rate: 5 },
   { name: 'steady', seconds: 300, rate: 5 },
@@ -25,7 +33,15 @@ const requests = new Counter('search_requests');
 const failures = new Counter('search_failures');
 const timeouts = new Counter('search_timeouts');
 const duration = new Trend('search_duration', true);
-const thresholds = { dropped_iterations: ['count==0'] };
+const compareApi = new Trend('search_compare_api_ms', true);
+const compareCall = new Trend('search_compare_http_call_ms', true);
+const compareRequests = new Counter('search_compare_requests');
+const compareFailures = new Counter('search_compare_failures');
+const thresholds = {
+  dropped_iterations: ['count==0'],
+  search_compare_requests: ['count>0'],
+  search_compare_failures: ['count==0'],
+};
 
 // 구간·검색어별 지표를 별도로 집계한다.
 for (const phase of phases) {
@@ -33,6 +49,8 @@ for (const phase of phases) {
   for (const testCase of cases) {
     const selector = `phase:${phase.name},search_case:${testCase.id}`;
     thresholds[`search_duration{${selector}}`] = [];
+    thresholds[`search_compare_api_ms{${selector}}`] = [];
+    thresholds[`search_compare_http_call_ms{${selector}}`] = [];
     thresholds[`search_requests{${selector}}`] = [];
     thresholds[`search_failures{${selector}}`] = ['count==0'];
     thresholds[`search_timeouts{${selector}}`] = ['count==0'];
@@ -123,6 +141,7 @@ export default function ({ baseUrl, token }) {
 
   for (let page = 0; page < maxPosts / 5; page++) {
     // 이전 구간에서 시작한 사용자의 후속 요청도 실제 요청 시작 구간에 집계한다.
+    const requestStartedAt = Date.now();
     const tags = {
       ...flowTags,
       phase: currentPhase(),
@@ -132,13 +151,18 @@ export default function ({ baseUrl, token }) {
     if (cursor) {
       url += `&cursor=${encodeURIComponent(cursor)}`;
     }
+    const elapsed = (requestStartedAt - exec.scenario.startTime) / 1000;
+    const comparable = page === 0 && elapsed >= comparisonStartSeconds
+      && elapsed < comparisonStartSeconds + comparisonSeconds;
     requests.add(1, tags);
+    if (comparable) compareRequests.add(1, tags);
     const response = http.get(url, {
       headers: { Authorization: `Bearer ${token}` },
       redirects: 0,
       timeout: '120s',
       tags: { ...tags, name: 'search_page' },
     });
+    const httpCallMs = Date.now() - requestStartedAt;
     let data;
     if (response.status === 200) {
       try {
@@ -167,6 +191,14 @@ export default function ({ baseUrl, token }) {
       }
     }
 
+    if (comparable) {
+      compareFailures.add(valid ? 0 : 1, tags);
+      if (valid) {
+        compareApi.add(response.timings.duration, tags);
+        // k6 HTTP 구간과 별도로 연결 준비 등을 포함한 호출 전체 시간도 남긴다.
+        compareCall.add(httpCallMs, tags);
+      }
+    }
     failures.add(valid ? 0 : 1, tags);
     timeouts.add(response.error_code === 1050 ? 1 : 0, tags);
     if (!valid) {

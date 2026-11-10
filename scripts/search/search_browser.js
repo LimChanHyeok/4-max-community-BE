@@ -26,18 +26,34 @@ const sessionFailures = new Counter('browser_session_failures');
 const withinSecond = new Rate('browser_search_within_1s');
 const displayDuration = new Trend('browser_search_display_ms', true);
 const domDuration = new Trend('browser_search_dom_ms', true);
+const apiDuration = new Trend('browser_search_api_ms', true);
+const clickToResponse = new Trend('browser_search_click_to_response_ms', true);
+const beforeRequest = new Trend('browser_search_before_request_ms', true);
+const afterResponse = new Trend('browser_search_after_response_ms', true);
 const thresholds = {
   browser_search_attempts: ['count>0'],
   browser_search_failures: ['count==0'],
   browser_session_failures: ['count==0'],
+  browser_search_within_1s: ['rate>=0.99'],
 };
 for (const testCase of cases) {
   thresholds[`browser_search_display_ms{search_case:${testCase.id}}`] = [];
+  thresholds[`browser_search_api_ms{search_case:${testCase.id}}`] = [];
+  thresholds[`browser_search_attempts{search_case:${testCase.id}}`] = ['count>0'];
   thresholds[`browser_search_within_1s{search_case:${testCase.id}}`] = [];
 }
 for (const phase of browserOnly ? ['standalone'] : ['steady', 'peak', 'recovery']) {
   thresholds[`browser_search_display_ms{phase:${phase}}`] = [];
   thresholds[`browser_search_within_1s{phase:${phase}}`] = [];
+  thresholds[`browser_search_api_ms{phase:${phase}}`] = [];
+  for (const testCase of cases) {
+    const selector = `phase:${phase},search_case:${testCase.id}`;
+    thresholds[`browser_search_display_ms{${selector}}`] = [];
+    thresholds[`browser_search_api_ms{${selector}}`] = [];
+  }
+}
+for (let user = 1; user <= browserUsers; user++) {
+  thresholds[`browser_search_attempts{browser_user:${user}}`] = ['count>0'];
 }
 
 export const options = {
@@ -80,6 +96,7 @@ function phaseAt(epochMs) {
 function installProbe() {
   const probe = window.__searchProbe = { current: null, next: 0 };
   const nativeFetch = window.fetch.bind(window);
+  performance.setResourceTimingBufferSize(5000);
   const sameContents = state => {
     const list = document.querySelector('.boardList');
     const input = document.querySelector('#searchInput');
@@ -123,9 +140,23 @@ function installProbe() {
       requestAnimationFrame(() => requestAnimationFrame(() => {
         if (probe.current !== state || state.result) return;
         if (!sameContents(state)) return requestAnimationFrame(check);
+        // 이 검색이 보낸 정확한 URL·시각의 Resource Timing만 사용한다.
+        const timing = performance.getEntriesByName(state.requestUrl || '')
+          .filter(entry => entry.initiatorType === 'fetch'
+            && entry.startTime >= state.fetchStarted - 0.5
+            && entry.responseEnd > 0).pop();
+        if (!timing) return requestAnimationFrame(check);
+        const displayedAt = performance.now();
+        if (timing.requestStart < state.start || timing.responseEnd > displayedAt
+            || timing.responseEnd < timing.requestStart) return fail(state, 'invalid_timing');
         state.result = {
           ok: true,
-          displayMs: performance.now() - state.start,
+          // 같은 표본에서 표시 시간 = 요청 전 + API + 응답 후 시간이 된다.
+          apiMs: timing.responseEnd - timing.requestStart,
+          beforeRequestMs: timing.requestStart - state.start,
+          clickToResponseMs: timing.responseEnd - state.start,
+          afterResponseMs: displayedAt - timing.responseEnd,
+          displayMs: displayedAt - state.start,
           domMs: state.domMs,
           clickedAt: state.clickedAt,
           rows: state.posts.length,
@@ -140,6 +171,14 @@ function installProbe() {
     const url = new URL(typeof input === 'string' ? input : input.url, location.href);
     const measured = state?.started && url.pathname === '/api/posts'
       && url.searchParams.get('keyword') === state.keyword && !url.searchParams.has('cursor');
+    if (measured) {
+      if (state.requestUrl) {
+        fail(state, 'duplicate_request');
+      } else {
+        state.requestUrl = url.href;
+        state.fetchStarted = performance.now();
+      }
+    }
     let response;
     try {
       response = await nativeFetch(...args);
@@ -205,6 +244,7 @@ export async function browserSession({ baseUrl }) {
     while (Date.now() < end) {
       const testCase = cases[index++ % cases.length];
       const tags = { search_case: testCase.id, phase: phaseAt(Date.now()), browser_user: String(slot + 1) };
+      const sampleId = `${slot + 1}-${index}`;
       await page.locator('#searchInput').fill(testCase.keyword);
       await page.evaluate(({ keyword, rows }) => {
         const probe = window.__searchProbe;
@@ -220,15 +260,20 @@ export async function browserSession({ baseUrl }) {
       } catch (_) {
         result = { ok: false, reason: 'automation_or_timeout' };
       }
+      if (result.ok) tags.phase = phaseAt(result.clickedAt);
       failures.add(result.ok ? 0 : 1, tags);
       timeouts.add(!result.ok && result.reason.includes('timeout') ? 1 : 0, tags);
       withinSecond.add(result.ok && result.displayMs <= 1000, tags);
       if (result.ok) {
         displayDuration.add(result.displayMs, tags);
         domDuration.add(result.domMs, tags);
-        console.log(`browser_sample ${JSON.stringify({ ...tags, ...result })}`);
+        apiDuration.add(result.apiMs, tags);
+        clickToResponse.add(result.clickToResponseMs, tags);
+        beforeRequest.add(result.beforeRequestMs, tags);
+        afterResponse.add(result.afterResponseMs, tags);
+        console.log(`browser_sample ${JSON.stringify({ sample_id: sampleId, ...tags, ...result })}`);
       } else {
-        console.warn(`browser_sample ${JSON.stringify({ ...tags, ok: false, reason: result.reason })}`);
+        console.warn(`browser_sample ${JSON.stringify({ sample_id: sampleId, ...tags, ok: false, reason: result.reason })}`);
         // 늦게 도착한 이전 응답이 다음 측정을 오염시키지 않게 페이지를 새로 준비한다.
         await page.close();
         page = await openBoard(context, baseUrl, email);

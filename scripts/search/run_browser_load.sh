@@ -26,6 +26,10 @@ printf '대상 %s\n결과 폴더 %s\n' "$SEARCH_BASE_URL" "$run_dir"
 {
     date -u '+UTC 실행 시각 %Y-%m-%dT%H:%M:%SZ'
     k6 version
+    printf '측정 스크립트 기준 커밋 '; git rev-parse HEAD
+    printf '대상 %s · 데이터 %s건\n' "$SEARCH_BASE_URL" "$SEARCH_DATASET_SIZE"
+    printf '측정 스크립트 미커밋 변경\n'
+    git status --short -- scripts/search/search_browser.js scripts/search/search_load.js scripts/search/run_browser_load.sh
     printf '기기 아키텍처 '; uname -m
     printf '브라우저 사용자 %s · 측정 %s초 · 브라우저 단독 %s\n' \
         "${SEARCH_BROWSER_USERS:-3}" "${SEARCH_BROWSER_SECONDS:-180}" "${SEARCH_BROWSER_ONLY:-false}"
