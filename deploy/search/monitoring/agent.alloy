@@ -8,6 +8,11 @@ discovery.relabel "host" {
   targets = prometheus.exporter.unix.host.targets
 
   rule {
+    target_label = "job"
+    replacement  = "search-host"
+  }
+
+  rule {
     target_label = "instance"
     replacement  = sys.env("MONITOR_ROLE")
   }

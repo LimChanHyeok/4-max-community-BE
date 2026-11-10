@@ -43,7 +43,7 @@ services:
   grafana:
     image: grafana/grafana:13.3.0
     restart: unless-stopped
-    mem_limit: 192m
+    mem_limit: 320m
     ports:
       - "127.0.0.1:3000:3000"
     environment:
