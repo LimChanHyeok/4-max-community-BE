@@ -57,6 +57,11 @@ variable "mysql_instance_type" {
   default = "t3a.medium"
 }
 
+variable "monitoring_instance_type" {
+  type    = string
+  default = "t3a.micro"
+}
+
 variable "root_volume_size" {
   type    = number
   default = 20

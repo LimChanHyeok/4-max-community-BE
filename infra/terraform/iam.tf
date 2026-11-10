@@ -10,7 +10,7 @@ data "aws_iam_policy_document" "ec2_assume" {
 }
 
 resource "aws_iam_role" "server" {
-  for_each = toset(["backend", "mysql"])
+  for_each = toset(["backend", "mysql", "monitoring"])
 
   name               = "${var.name_prefix}-${each.key}-ec2"
   assume_role_policy = data.aws_iam_policy_document.ec2_assume.json

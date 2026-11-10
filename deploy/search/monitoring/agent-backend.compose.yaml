@@ -1,0 +1,10 @@
+services:
+  alloy:
+    networks:
+      - default
+      - backend
+
+networks:
+  backend:
+    external: true
+    name: community-search-backend_default
