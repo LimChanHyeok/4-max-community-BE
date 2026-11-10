@@ -1,6 +1,6 @@
 # 검색 실험 모니터링
 
-기존 검색 VPC에 `t3a.micro` EC2를 한 대 추가한다. Grafana·Prometheus·Loki는 이 EC2에서 실행하고, 백엔드와 MySQL EC2에는 Alloy를 한 개씩 실행한다. Alloy는 호스트 지표와 Docker 로그를 수집한다. 백엔드 Alloy만 기존 백엔드 Compose 네트워크에서 Spring 지표를 읽는다.
+기존 검색 VPC에 `t3a.small` EC2(메모리 2GiB)를 한 대 구성한다. Grafana·Prometheus·Loki는 이 EC2에서 실행하고, 백엔드와 MySQL EC2에는 Alloy를 한 개씩 실행한다. Alloy는 호스트 지표와 Docker 로그를 수집한다. 백엔드 Alloy만 기존 백엔드 Compose 네트워크에서 Spring 지표를 읽는다.
 
 Prometheus와 Loki는 모니터링 EC2의 사설 IP에 바인딩되며, 백엔드·MySQL 보안 그룹에서만 들어올 수 있다. Grafana는 루프백에 바인딩하고 SSM으로 접속한다. EC2의 공인 IP는 SSM 및 패키지·이미지 다운로드에 사용한다. 공개 인바운드 규칙은 없다.
 
